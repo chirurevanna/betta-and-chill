@@ -176,6 +176,38 @@ body.idle {
   transition: opacity 0.8s ease;
 }
 
+/* ---------- place name ---------- */
+.place-title {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  left: max(20px, env(safe-area-inset-left));
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+  color: var(--ink);
+  /* tight dark edge + soft halo: readable on bright clouds by day and on the night sky */
+  text-shadow:
+    0 1px 2px rgba(20, 24, 46, 0.6),
+    0 0 1px rgba(20, 24, 46, 0.5),
+    0 2px 22px rgba(20, 24, 46, 0.55);
+  pointer-events: none;
+  user-select: none;
+}
+.place-kn {
+  font-family: 'Noto Sans Kannada', 'Kannada Sangam MN', 'Tunga', 'Nirmala UI', sans-serif;
+  font-size: clamp(1.7rem, 4.2vw, 2.8rem);
+  font-weight: 700;
+}
+.place-en {
+  font-size: clamp(0.85rem, 1.8vw, 1.15rem);
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  margin-top: 4px;
+}
+
 /* ---------- benches ---------- */
 .bench-panel {
   position: fixed;
