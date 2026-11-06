@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <title>Betta &amp; Chill Remote</title>
+    <meta name="theme-color" content="#1c2238" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body class="remote">
+    <main class="remote-main">
+      <header>
+        <h1>Betta &amp; Chill</h1>
+        <p id="status" class="status">Connecting…</p>
+      </header>
+      <div class="grid">
+        <button class="ctl" data-cmd="birds" disabled><span class="ico">🐦</span><span class="lbl">Birds</span><span class="bar"></span></button>
+        <button class="ctl" data-cmd="sun" disabled><span class="ico">🌇</span><span class="lbl">Sunset</span><span class="bar"></span></button>
+        <button class="ctl" data-cmd="breeze" disabled><span class="ico">🍃</span><span class="lbl">Breeze</span><span class="bar"></span></button>
+        <button class="ctl" data-cmd="rain" disabled><span class="ico">🌧️</span><span class="lbl">Rain</span><span class="bar"></span></button>
+      </div>
+      <p class="hint">Watch the big screen ✨</p>
+    </main>
+    <script type="module" src="/src/remote/main.ts"></script>
+  </body>
+</html>

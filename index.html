@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Betta &amp; Chill</title>
+    <meta name="description" content="Sit on Chamundi Hills and watch Mysuru slow down. Scan the QR code to send birds, rain, breeze or a sunset." />
+    <meta name="theme-color" content="#2a3358" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <canvas id="scene" aria-label="Illustrated view of Mysuru city from Chamundi Hills"></canvas>
+
+    <section id="landing" class="landing">
+      <div class="landing-inner">
+        <h1>Betta &amp; Chill</h1>
+        <p class="tagline">Sit on Chamundi Hills and watch Mysuru slow down.</p>
+        <div class="cards">
+          <button class="card" data-view="nandi">
+            <span class="card-title">Nandi viewpoint</span>
+            <span class="card-blurb">Beside the great stone bull, halfway up the hill.</span>
+          </button>
+          <button class="card" data-view="summit">
+            <span class="card-title">The summit</span>
+            <span class="card-blurb">By the Chamundeshwari temple tower, high above the city.</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <div id="hud" class="hud" hidden>
+      <div id="tray" class="tray" hidden>
+        <button class="pill" type="button" data-fx="birds" title="Birds (B)">🐦</button>
+        <button class="pill" type="button" data-fx="sun" title="Sunset / sunrise (S)">🌇</button>
+        <button class="pill" type="button" data-fx="breeze" title="Breeze (W)">🍃</button>
+        <button class="pill" type="button" data-fx="rain" title="Rain (R)">🌧️</button>
+      </div>
+      <div class="hud-row">
+        <button id="btn-view" class="pill" type="button"></button>
+        <button id="btn-sound" class="pill" type="button" aria-pressed="false">🔇 Sound</button>
+        <button id="btn-play" class="pill" type="button" aria-expanded="false" aria-controls="tray">✨ Play</button>
+      </div>
+    </div>
+
+    <aside id="remote-panel" class="remote-panel" hidden>
+      <button id="remote-collapse" class="remote-collapse" type="button" aria-label="Hide QR code">×</button>
+      <div class="remote-body">
+        <canvas id="qr" width="132" height="132" aria-label="QR code for the phone remote"></canvas>
+        <div class="remote-text">
+          <strong>Play with the sky</strong>
+          <span>Scan to get a remote on your phone.</span>
+          <span id="remote-status" class="remote-status">Connecting…</span>
+        </div>
+      </div>
+    </aside>
+    <button id="remote-pill" class="pill remote-pill" type="button" hidden>📱 Remote</button>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
