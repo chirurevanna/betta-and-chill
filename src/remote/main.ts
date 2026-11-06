@@ -1,5 +1,16 @@
 import './remote.css';
-import { EFFECTS, EV_CMD, EV_HELLO, EV_STATE, ROOM_RE, type EffectType, type StateMsg } from '../protocol';
+import {
+  EFFECTS,
+  EV_CMD,
+  EV_HELLO,
+  EV_RADIO,
+  EV_STATE,
+  ROOM_RE,
+  type EffectType,
+  type RadioAction,
+  type RadioState,
+  type StateMsg,
+} from '../protocol';
 import { joinRoom, type Link } from '../realtime';
 
 const statusEl = document.getElementById('status')!;
@@ -33,9 +44,62 @@ function applyState(s: StateMsg) {
     total[e] = Math.max(ms, 1);
   }
   setSunLabel(!!s.isNight);
+  if (s.radio) applyRadio(s.radio);
   if (screens === 0) screens = 1; // a state message proves a screen is there
   refreshStatus();
 }
+
+/* ---------- radio card ---------- */
+const radioStation = document.getElementById('radio-station')!;
+const radioNote = document.getElementById('radio-note')!;
+const radioVol = document.getElementById('radio-vol') as HTMLInputElement;
+const radioButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-radio]')];
+const radioToggle = radioButtons.find((b) => b.dataset.radio === 'toggle')!;
+let volDragging = false;
+
+function applyRadio(r: RadioState) {
+  radioStation.textContent = r.on ? r.station : 'Kannada radio';
+  radioNote.textContent = r.blocked
+    ? 'Tap the big screen once to start the radio'
+    : r.unavailable
+      ? 'No station reachable right now'
+      : r.on
+        ? 'Live now'
+        : `Off · ${r.station}`;
+  radioToggle.textContent = r.on ? '⏸' : '▶';
+  if (!volDragging) radioVol.value = String(Math.round(r.volume * 100));
+}
+
+function sendRadio(action: RadioAction, value?: number) {
+  if (!link) return;
+  link.send(EV_RADIO, { action, value, from: me });
+}
+
+for (const b of radioButtons) {
+  b.addEventListener('click', () => {
+    if (b.disabled) return;
+    sendRadio(b.dataset.radio as RadioAction);
+    navigator.vibrate?.(12);
+  });
+}
+
+// throttle slider updates so a drag doesn't flood the channel
+let volTimer = 0;
+let volPending: number | null = null;
+radioVol.addEventListener('input', () => {
+  volDragging = true;
+  volPending = Number(radioVol.value) / 100;
+  if (volTimer) return;
+  volTimer = window.setTimeout(function flush() {
+    if (volPending !== null) sendRadio('vol', volPending);
+    volPending = null;
+    volTimer = 0;
+  }, 150);
+});
+radioVol.addEventListener('change', () => {
+  volDragging = false;
+  sendRadio('vol', Number(radioVol.value) / 100);
+});
 
 function refreshStatus() {
   if (!online) return;
@@ -52,6 +116,9 @@ function tick() {
     const bar = b.querySelector<HTMLElement>('.bar')!;
     bar.style.transform = `scaleX(${left > 0 ? left / total[e] : 0})`;
   }
+  const linked = online && screens > 0;
+  for (const b of radioButtons) b.disabled = !linked;
+  radioVol.disabled = !linked;
   requestAnimationFrame(tick);
 }
 

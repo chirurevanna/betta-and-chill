@@ -9,15 +9,38 @@ export interface CmdMsg {
   from: string;
 }
 
+export type RadioAction = 'toggle' | 'next' | 'prev' | 'vol';
+const RADIO_ACTIONS: readonly RadioAction[] = ['toggle', 'next', 'prev', 'vol'];
+
+/** remote → screen */
+export interface RadioCmd {
+  action: RadioAction;
+  /** volume 0..1, only for 'vol' */
+  value?: number;
+  from: string;
+}
+
+export interface RadioState {
+  on: boolean;
+  station: string;
+  volume: number;
+  /** the screen's browser needs a tap before it may play audio */
+  blocked: boolean;
+  /** every station failed */
+  unavailable: boolean;
+}
+
 /** screen → remotes */
 export interface StateMsg {
   isNight: boolean;
   /** milliseconds until each effect can be triggered again (0 = ready) */
   cooldowns: Record<EffectType, number>;
   view: string;
+  radio?: RadioState;
 }
 
 export const EV_CMD = 'cmd';
+export const EV_RADIO = 'radio';
 export const EV_STATE = 'state';
 export const EV_HELLO = 'hello';
 
@@ -31,6 +54,13 @@ export function newRoomCode(): string {
 }
 
 export const channelName = (room: string) => `bc:${room}`;
+
+export function isRadioCmd(v: unknown): v is RadioCmd {
+  if (!v || typeof v !== 'object') return false;
+  const c = v as Partial<RadioCmd>;
+  if (!(RADIO_ACTIONS as readonly unknown[]).includes(c.action)) return false;
+  return c.action !== 'vol' || (typeof c.value === 'number' && Number.isFinite(c.value));
+}
 
 export function isEffect(v: unknown): v is EffectType {
   return typeof v === 'string' && (EFFECTS as readonly string[]).includes(v);

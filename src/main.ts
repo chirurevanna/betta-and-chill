@@ -1,7 +1,20 @@
 import './styles.css';
 import { Ambience } from './audio';
 import { Effects } from './effects/manager';
-import { EV_CMD, EV_HELLO, EV_STATE, ROOM_RE, isEffect, newRoomCode, type EffectType, type StateMsg } from './protocol';
+import {
+  EV_CMD,
+  EV_HELLO,
+  EV_RADIO,
+  EV_STATE,
+  ROOM_RE,
+  isEffect,
+  isRadioCmd,
+  newRoomCode,
+  type EffectType,
+  type RadioCmd,
+  type StateMsg,
+} from './protocol';
+import { Radio, type PlayResult } from './radio/player';
 import { joinRoom, realtimeConfigured, type Link, type LinkStatus } from './realtime';
 import { nightOf } from './scene/palette';
 import { Renderer } from './scene/render';
@@ -26,6 +39,7 @@ const TIMES: Record<string, number> = { day: 0, golden: 0.42, sunset: 0.56, dusk
 const fx = new Effects(TIMES[params.get('time') ?? 'day'] ?? 0);
 const renderer = new Renderer($<HTMLCanvasElement>('scene'), initialView);
 const audio = new Ambience();
+const radio = new Radio();
 const clock = () => performance.now() / 1000;
 
 fx.onBirds = () => {
@@ -44,6 +58,7 @@ function frame() {
   fx.update(now);
   renderer.render(now, dt, fx);
   audio.update(fx.wind, fx.rain, nightOf(fx.phase));
+  radio.duck(fx.rain);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -67,9 +82,65 @@ let link: Link | null = null;
 
 function broadcastState() {
   if (!link) return;
-  const msg: StateMsg = { isNight: fx.isNight, cooldowns: fx.cooldowns(clock()), view: renderer.currentView };
+  const msg: StateMsg = {
+    isNight: fx.isNight,
+    cooldowns: fx.cooldowns(clock()),
+    view: renderer.currentView,
+    radio: {
+      on: radio.on,
+      station: radio.station.name,
+      volume: radio.volume,
+      blocked: radio.blocked,
+      unavailable: radio.unavailable,
+    },
+  };
   link.send(EV_STATE, msg);
 }
+
+/* ---------- radio ---------- */
+const btnRadio = $<HTMLButtonElement>('btn-radio');
+function renderRadioButton() {
+  btnRadio.textContent = radio.on ? `📻 ${radio.station.name}` : '📻 Radio';
+  btnRadio.setAttribute('aria-pressed', String(radio.on));
+}
+let radioStateTimer = 0;
+radio.onChange = () => {
+  renderRadioButton();
+  // coalesce bursts (e.g. failover + playing) into one broadcast
+  clearTimeout(radioStateTimer);
+  radioStateTimer = window.setTimeout(broadcastState, 60);
+};
+renderRadioButton();
+
+function reportRadio(r: PlayResult) {
+  if (r === 'blocked') toast('📻 Tap the screen once to let the radio play');
+  else if (radio.unavailable) toast('📻 No station is reachable right now');
+}
+
+async function radioCommand(cmd: Pick<RadioCmd, 'action' | 'value'>, fromRemote: boolean) {
+  let r: PlayResult = 'ok';
+  if (cmd.action === 'toggle') r = await radio.toggle();
+  else if (cmd.action === 'next') r = await radio.next();
+  else if (cmd.action === 'prev') r = await radio.prev();
+  else if (cmd.action === 'vol' && cmd.value !== undefined) radio.setVolume(cmd.value);
+  reportRadio(r);
+  if (fromRemote && r === 'ok' && cmd.action !== 'vol') {
+    toast(radio.on ? `📻 ${radio.station.name}` : '📻 Radio paused');
+  }
+  broadcastState();
+}
+
+btnRadio.addEventListener('click', () => void radioCommand({ action: 'toggle' }, false));
+
+// a remote may ask for the radio before anyone touched this screen; the first tap unblocks it
+addEventListener(
+  'pointerdown',
+  (e) => {
+    if (e.target instanceof Node && btnRadio.contains(e.target)) return; // its click handles it
+    if (radio.blocked && !radio.on) void radio.play().then(reportRadio);
+  },
+  { capture: true },
+);
 
 function fire(type: EffectType, fromRemote: boolean) {
   const wasNight = fx.isNight;
@@ -188,6 +259,8 @@ addEventListener('keydown', (e) => {
   else if (k === 'v' && landing.hidden) btnView.click();
   else if (k === 'm' && landing.hidden) btnSound.click();
   else if (k === 'q' && landing.hidden) showRemote(panel.hidden);
+  else if (k === 'p' && landing.hidden) void radioCommand({ action: 'toggle' }, false);
+  else if (k === 'n' && landing.hidden) void radioCommand({ action: 'next' }, false);
 });
 
 if (paramView === 'nandi' || paramView === 'summit') enterView(paramView);
@@ -244,6 +317,8 @@ async function startRemote() {
         const t = (payload as { type?: unknown })?.type;
         if (isEffect(t)) fire(t, true);
         else broadcastState();
+      } else if (event === EV_RADIO) {
+        if (isRadioCmd(payload)) void radioCommand(payload, true);
       } else if (event === EV_HELLO) {
         broadcastState();
       }
