@@ -2,6 +2,12 @@ import { css, mix, mulberry32, smoothstep, type RGB } from '../util';
 import { gopuram, lakeDrawable, lalithaMahal, mysorePalace, nandi, philomenaChurch } from './landmarks';
 import type { Drawable, Frame, Lake, TreeDef, ViewId } from './types';
 
+export interface BenchSpot {
+  x: number;
+  y: number;
+  u: number;
+}
+
 export interface Layout {
   W: number;
   H: number;
@@ -17,6 +23,8 @@ export interface Layout {
   drawForeground(ctx: CanvasRenderingContext2D, f: Frame): void;
   ledgeTop(x: number): number;
   trees: TreeDef[];
+  /** where the shared bench stands: centre x, ground y, and its drawing unit */
+  bench: BenchSpot;
   palaceX: number;
   palaceY: number;
 }
@@ -263,6 +271,7 @@ export function buildLayout(W: number, H: number, view: ViewId): Layout {
     drawForeground: fg.draw,
     ledgeTop: fg.ledgeTop,
     trees: fg.trees,
+    bench: fg.bench,
     palaceX: pal.x,
     palaceY: pal.y,
   };
@@ -335,6 +344,9 @@ function nandiForeground(W: number, H: number, s: number, rnd: () => number) {
     boulders.ellipse(bx, by, br, br * 0.6, 0, Math.PI, 0);
   }
   const bull = nandi(nx, edge.top(nx) - 15 * n, n);
+  const bu = n;
+  const bx = Math.min(W * 0.6, Math.max(W * 0.47, nx + 72 * n + 95 * bu));
+  const bench: BenchSpot = { x: bx, y: edge.top(bx) + 3 * bu, u: bu };
   const trees = [
     makeTree(W - Math.max(60 * s, W * 0.06), edge.top(W * 0.94) + 4, Math.min(H * 0.55, W * 0.6), s, rnd, -0.04),
     makeTree(W * 0.7, edge.top(W * 0.7) + 4, Math.min(H * 0.18, W * 0.22), s, rnd, 0.02),
@@ -342,6 +354,7 @@ function nandiForeground(W: number, H: number, s: number, rnd: () => number) {
   return {
     ledgeTop: edge.top,
     trees,
+    bench,
     draw(ctx: CanvasRenderingContext2D, f: Frame) {
       ctx.fillStyle = f.c.rock;
       ctx.fill(rock);
@@ -369,6 +382,9 @@ function summitForeground(W: number, H: number, s: number, rnd: () => number) {
   }
   rail.rect(-20, railY, gx - gw * 0.55 + 20, 3 * s);
   rail.rect(-20, railY + 14 * s, gx - gw * 0.55 + 20, 2.4 * s);
+  const su = Math.min(H * 0.0028, W * 0.0034);
+  const sx = Math.min(gx - gw * 0.55 - 90 * su, Math.max(W * 0.5, W * 0.33 + 110 * su));
+  const bench: BenchSpot = { x: sx, y: edge.top(sx) + 3 * su, u: su };
   const trees = [
     makeTree(Math.max(40 * s, W * 0.05), edge.top(W * 0.05) + 4, Math.min(H * 0.6, W * 0.62), s, rnd, 0.03),
     makeTree(W * 0.33, edge.top(W * 0.33) + 4, Math.min(H * 0.16, W * 0.2), s, rnd, -0.02),
@@ -376,6 +392,7 @@ function summitForeground(W: number, H: number, s: number, rnd: () => number) {
   return {
     ledgeTop: edge.top,
     trees,
+    bench,
     draw(ctx: CanvasRenderingContext2D, f: Frame) {
       ctx.fillStyle = f.c.rock;
       ctx.fill(rock);

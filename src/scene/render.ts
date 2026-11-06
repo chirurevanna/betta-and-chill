@@ -1,6 +1,7 @@
 import { Birds, Leaves, Rain } from '../effects/particles';
 import type { Effects } from '../effects/manager';
 import { clamp, css, lerp, mix, smoothstep } from '../util';
+import { BenchScene } from './bench';
 import { buildLayout, type Layout } from './build';
 import { goldenOf, nightOf, paletteAt, type PaletteKey } from './palette';
 import { Sky } from './sky';
@@ -16,6 +17,7 @@ export class Renderer {
   readonly birds = new Birds();
   private leaves = new Leaves();
   private rain = new Rain();
+  readonly bench = new BenchScene();
   private W = 0;
   private H = 0;
   private dpr = 1;
@@ -232,6 +234,7 @@ export class Renderer {
     ctx.save();
     ctx.translate(f.px, f.py);
     layout.drawForeground(ctx, f);
+    this.bench.draw(ctx, f, layout.bench, W, this.reduced);
     for (const t of layout.trees) this.drawTree(ctx, t, f);
     this.leaves.update(f, layout.trees, W, H, layout.s, (t) => this.treeSway(t, f));
     this.leaves.draw(ctx, f);

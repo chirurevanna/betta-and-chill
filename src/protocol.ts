@@ -9,20 +9,30 @@ export interface CmdMsg {
   from: string;
 }
 
-export type RadioAction = 'toggle' | 'next' | 'prev' | 'vol';
-const RADIO_ACTIONS: readonly RadioAction[] = ['toggle', 'next', 'prev', 'vol'];
+export type RadioAction = 'toggle' | 'next' | 'prev' | 'vol' | 'select';
+const RADIO_ACTIONS: readonly RadioAction[] = ['toggle', 'next', 'prev', 'vol', 'select'];
 
 /** remote → screen */
 export interface RadioCmd {
   action: RadioAction;
   /** volume 0..1, only for 'vol' */
   value?: number;
+  /** station id, only for 'select' */
+  station?: string;
   from: string;
+}
+
+export interface RadioStationInfo {
+  id: string;
+  name: string;
+  available: boolean;
 }
 
 export interface RadioState {
   on: boolean;
   station: string;
+  stationId: string;
+  stations: RadioStationInfo[];
   volume: number;
   /** the screen's browser needs a tap before it may play audio */
   blocked: boolean;
@@ -36,6 +46,8 @@ export interface StateMsg {
   /** milliseconds until each effect can be triggered again (0 = ready) */
   cooldowns: Record<EffectType, number>;
   view: string;
+  /** 1-based bench number the screen is sitting on, null when standing */
+  bench?: number | null;
   radio?: RadioState;
 }
 
@@ -59,6 +71,7 @@ export function isRadioCmd(v: unknown): v is RadioCmd {
   if (!v || typeof v !== 'object') return false;
   const c = v as Partial<RadioCmd>;
   if (!(RADIO_ACTIONS as readonly unknown[]).includes(c.action)) return false;
+  if (c.action === 'select') return typeof c.station === 'string' && c.station.length <= 64;
   return c.action !== 'vol' || (typeof c.value === 'number' && Number.isFinite(c.value));
 }
 

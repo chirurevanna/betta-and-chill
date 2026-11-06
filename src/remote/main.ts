@@ -44,7 +44,7 @@ function applyState(s: StateMsg) {
     total[e] = Math.max(ms, 1);
   }
   setSunLabel(!!s.isNight);
-  if (s.radio) applyRadio(s.radio);
+  if (s.radio) applyRadio(s.radio, s.bench ?? null);
   if (screens === 0) screens = 1; // a state message proves a screen is there
   refreshStatus();
 }
@@ -57,22 +57,56 @@ const radioButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-rad
 const radioToggle = radioButtons.find((b) => b.dataset.radio === 'toggle')!;
 let volDragging = false;
 
-function applyRadio(r: RadioState) {
+function applyRadio(r: RadioState, bench: number | null) {
   radioStation.textContent = r.on ? r.station : 'Kannada radio';
-  radioNote.textContent = r.blocked
-    ? 'Tap the big screen once to start the radio'
-    : r.unavailable
-      ? 'No station reachable right now'
-      : r.on
-        ? 'Live now'
-        : `Off · ${r.station}`;
+  const where = bench ? `🪑 Bench ${bench} · ` : '';
+  radioNote.textContent =
+    where +
+    (r.blocked
+      ? 'Tap the big screen once to start the radio'
+      : r.unavailable
+        ? 'No station reachable right now'
+        : r.on
+          ? bench
+            ? 'playing for the whole bench'
+            : 'Live now'
+          : `Off · ${r.station}`);
   radioToggle.textContent = r.on ? '⏸' : '▶';
   if (!volDragging) radioVol.value = String(Math.round(r.volume * 100));
+  renderStations(r);
 }
 
-function sendRadio(action: RadioAction, value?: number) {
+/** One chip per Kannada station; tapping one switches the big screen to it. */
+const radioStations = document.getElementById('radio-stations')!;
+let stationsKey = '';
+function renderStations(r: RadioState) {
+  const list = r.stations ?? [];
+  const key = JSON.stringify([list, r.stationId, r.on]);
+  if (key === stationsKey) return; // state arrives often; only rebuild on change
+  stationsKey = key;
+  radioStations.replaceChildren(
+    ...list.map((s) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      const current = r.on && s.id === r.stationId;
+      b.className = `chip${current ? ' current' : ''}${s.available ? '' : ' down'}`;
+      b.textContent = s.name;
+      b.setAttribute('aria-pressed', String(current));
+      b.dataset.station = s.id;
+      b.disabled = !(online && screens > 0);
+      b.addEventListener('click', () => {
+        if (b.disabled) return;
+        sendRadio('select', undefined, s.id);
+        navigator.vibrate?.(12);
+      });
+      return b;
+    }),
+  );
+}
+
+function sendRadio(action: RadioAction, value?: number, station?: string) {
   if (!link) return;
-  link.send(EV_RADIO, { action, value, from: me });
+  link.send(EV_RADIO, { action, value, station, from: me });
 }
 
 for (const b of radioButtons) {
@@ -118,6 +152,7 @@ function tick() {
   }
   const linked = online && screens > 0;
   for (const b of radioButtons) b.disabled = !linked;
+  for (const b of radioStations.children as HTMLCollectionOf<HTMLButtonElement>) b.disabled = !linked;
   radioVol.disabled = !linked;
   requestAnimationFrame(tick);
 }

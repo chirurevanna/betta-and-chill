@@ -29,7 +29,7 @@ npm run dev            # http://localhost:5173
 | Q | Show or hide the QR code |
 
 **URL params** (handy for demos):
-- `?view=nandi|summit` skips the landing screen.
+- `?view=summit` opens at the summit (the default is the Nandi viewpoint; switch any time from the bottom bar).
 - `?time=day|golden|sunset|dusk|night` sets the starting light.
 - `?fx=rain,birds` starts those effects immediately.
 
