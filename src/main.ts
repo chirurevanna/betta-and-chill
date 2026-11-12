@@ -1,4 +1,5 @@
 import './styles.css';
+import { inject } from '@vercel/analytics';
 import { Effects } from './effects/manager';
 import { isEffect, type EffectType } from './protocol';
 import { BENCH_COUNT, BenchPark, SEATS } from './park/benches';
@@ -8,6 +9,9 @@ import { Renderer } from './scene/render';
 import type { ViewId } from './scene/types';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+
+// Vercel Web Analytics (page views; it only reports on Vercel, never in local dev)
+inject();
 
 const VIEW_NAMES: Record<ViewId, string> = { nandi: 'Nandi', summit: 'Summit' };
 

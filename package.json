@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@supabase/realtime-js": "2.119.0"
+    "@supabase/realtime-js": "2.119.0",
+    "@vercel/analytics": "^2.0.1"
   },
   "devDependencies": {
     "typescript": "5.9.3",
