@@ -35,6 +35,7 @@ export class Radio {
   private retryTimer = 0;
   private _blocked = false;
   private _unavailable = false;
+  private _live = false;
   onChange: () => void = () => {};
 
   constructor() {
@@ -46,6 +47,7 @@ export class Radio {
     this.applyVolume();
 
     this.el.addEventListener('playing', () => {
+      this._live = true;
       clearTimeout(this.stallTimer);
       this.failures = 0;
       this._unavailable = false;
@@ -54,6 +56,14 @@ export class Radio {
       this.onChange();
     });
     this.el.addEventListener('error', () => this.fail('stream error'));
+    // anything that interrupts the sound: no longer live until 'playing' fires again
+    for (const ev of ['waiting', 'stalled', 'pause', 'emptied', 'error', 'ended'] as const) {
+      this.el.addEventListener(ev, () => {
+        if (!this._live) return;
+        this._live = false;
+        this.onChange();
+      });
+    }
     this.el.addEventListener('stalled', () => this.armStall());
     this.el.addEventListener('waiting', () => this.armStall());
     // a live stream "ending" means the server dropped us: reconnect
@@ -83,6 +93,10 @@ export class Radio {
   }
   get unavailable() {
     return this._unavailable;
+  }
+  /** Sound is actually coming out right now (not just "on" while connecting or buffering). */
+  get live() {
+    return this._live;
   }
 
   /** Ask Radio Browser which stations currently pass its health check, then log the list. */

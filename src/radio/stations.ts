@@ -23,8 +23,8 @@ export interface LangInfo {
 }
 
 export const LANGS: readonly LangInfo[] = [
-  { id: 'kn', label: 'KA', name: 'Kannada', tag: 'kannada' },
-  { id: 'hi', label: 'HI', name: 'Hindi', tag: 'hindi' },
+  { id: 'kn', label: 'ಕ', name: 'Kannada', tag: 'kannada' },
+  { id: 'hi', label: 'हि', name: 'Hindi', tag: 'hindi' },
   { id: 'en', label: 'EN', name: 'English', tag: 'english' },
 ];
 

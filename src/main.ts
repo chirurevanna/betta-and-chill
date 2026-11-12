@@ -60,68 +60,39 @@ addEventListener('resize', () => {
   resizeTimer = window.setTimeout(() => renderer.resize(), 120);
 });
 
-/* ---------- radio ---------- */
-const btnRadio = $<HTMLButtonElement>('btn-radio');
-const radioTray = $('radio-tray');
-function renderRadioButton() {
-  btnRadio.textContent = 'Radio';
-  btnRadio.setAttribute('aria-pressed', String(radio.on));
-}
+/* ---------- radio: the always-visible player bar ---------- */
+const player = $('player');
+const plPlay = $<HTMLButtonElement>('pl-play');
+const plPrev = $<HTMLButtonElement>('pl-prev');
+const plNext = $<HTMLButtonElement>('pl-next');
+const langBtns = [...player.querySelectorAll<HTMLButtonElement>('.lang-btn')];
 
-/** Radio row above the bottom bar: on/off, prev/next (within the language), then KA / HI / EN. */
-function renderRadioTray() {
-  if (radioTray.hidden) return;
-  const pill = (label: string, title: string, onClick: () => void, extra = '') => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = `pill ${extra}`.trim();
-    b.textContent = label;
-    b.title = title;
-    b.addEventListener('click', onClick);
-    return b;
-  };
-  const items: HTMLButtonElement[] = [
-    pill(radio.on ? 'Off' : 'On', radio.on ? 'Turn the radio off (P)' : 'Turn the radio on (P)', () =>
-      void radioCommand({ action: 'toggle' }),
-    ),
-    pill('Prev', 'Previous station', () => void radioCommand({ action: 'prev' })),
-    pill('Next', 'Next station (N)', () => void radioCommand({ action: 'next' })),
-  ];
+function renderPlayer() {
+  const on = radio.on;
+  player.classList.toggle('on', on);
+  // bars only bounce while sound is really coming out; connecting/buffering shows a soft pulse
+  player.classList.toggle('live', radio.live);
+  player.classList.toggle('loading', on && !radio.live);
+  plPlay.setAttribute('aria-pressed', String(on));
+  plPlay.setAttribute('aria-label', on ? 'Pause radio (P)' : 'Play radio (P)');
   const single = radio.countLang(radio.lang) < 2;
-  items[1].disabled = items[2].disabled = single;
-  for (const l of LANGS) {
+  plPrev.disabled = plNext.disabled = single;
+  for (const b of langBtns) {
+    const l = LANGS.find((x) => x.id === b.dataset.lang)!;
     const ready = radio.hasLang(l.id);
-    const current = radio.lang === l.id;
-    const b = pill(
-      l.label,
-      ready ? `${l.name} stations` : `${l.name} stations coming soon`,
-      () => void radioCommand({ action: 'lang', lang: l.id }),
-      `lang${current ? ' current' : ''}`,
-    );
     b.disabled = !ready;
-    b.setAttribute('aria-pressed', String(current));
-    b.setAttribute('lang', l.id);
-    items.push(b);
+    b.title = ready ? `${l.name} radio` : `${l.name} stations coming soon`;
+    b.setAttribute('aria-pressed', String(radio.lang === l.id));
   }
-  radioTray.replaceChildren(...items);
 }
 
-function showRadioTray(open: boolean) {
-  radioTray.hidden = !open;
-  btnRadio.setAttribute('aria-expanded', String(open));
-  if (open) {
-    // one tray at a time
-    $('tray').hidden = true;
-    $('btn-play').setAttribute('aria-expanded', 'false');
-  }
-  renderRadioTray();
-}
+plPlay.addEventListener('click', () => void radioCommand({ action: 'toggle' }));
+plPrev.addEventListener('click', () => void radioCommand({ action: 'prev' }));
+plNext.addEventListener('click', () => void radioCommand({ action: 'next' }));
+for (const b of langBtns) b.addEventListener('click', () => void radioCommand({ action: 'lang', lang: b.dataset.lang as Lang }));
 
-radio.onChange = () => {
-  renderRadioButton();
-  renderRadioTray();
-};
-renderRadioButton();
+radio.onChange = renderPlayer;
+renderPlayer();
 
 function reportRadio(r: PlayResult) {
   if (r === 'blocked') toast('Tap the screen once to let the radio play');
@@ -159,7 +130,6 @@ async function radioCommand(cmd: RadioCmd) {
   reportRadio(r);
 }
 
-btnRadio.addEventListener('click', () => showRadioTray(radioTray.hidden));
 
 // The radio is on by default. Browsers block sound until the first tap / key press,
 // so if autoplay was refused, that first interaction starts it.
@@ -169,7 +139,7 @@ function unblockRadio() {
 addEventListener(
   'pointerdown',
   (e) => {
-    if (e.target instanceof Node && radioTray.contains(e.target)) return; // its buttons handle it
+    if (e.target instanceof Node && player.contains(e.target)) return; // its buttons handle it
     unblockRadio();
   },
   { capture: true },
@@ -212,7 +182,6 @@ const tray = $('tray');
 const btnPlay = $<HTMLButtonElement>('btn-play');
 const trayButtons = [...tray.querySelectorAll<HTMLButtonElement>('[data-fx]')];
 btnPlay.addEventListener('click', () => {
-  if (tray.hidden) showRadioTray(false); // one tray at a time
   tray.hidden = !tray.hidden;
   btnPlay.setAttribute('aria-expanded', String(!tray.hidden));
   refreshTray();
