@@ -279,6 +279,29 @@ export function buildLayout(W: number, H: number, view: ViewId): Layout {
 
 /* ======================= foregrounds ======================= */
 
+/** Crown half-width of a tree of height h (see the blob spread in makeTree). */
+const crownHalf = (h: number) => h * 0.42 * 1.5;
+
+/**
+ * A small tree at its preferred x, pushed sideways (side -1 = left, +1 = right) just far enough
+ * that its crown doesn't overlap the bench at benchX ± benchHalf.
+ */
+function smallTreeBeside(
+  benchX: number,
+  benchHalf: number,
+  side: -1 | 1,
+  preferX: number,
+  h: number,
+  top: (x: number) => number,
+  s: number,
+  rnd: () => number,
+  lean: number,
+) {
+  const clear = benchX + side * (benchHalf + crownHalf(h) + 8 * s);
+  const x = side > 0 ? Math.max(preferX, clear) : Math.min(preferX, clear);
+  return makeTree(x, top(x) + 4, h, s, rnd, lean);
+}
+
 function makeTree(x: number, baseY: number, h: number, s: number, rnd: () => number, lean = 0): TreeDef {
   const blobs: TreeDef['blobs'] = [];
   const n = 7 + ((rnd() * 4) | 0);
@@ -349,7 +372,8 @@ function nandiForeground(W: number, H: number, s: number, rnd: () => number) {
   const bench: BenchSpot = { x: bx, y: edge.top(bx) + 3 * bu, u: bu };
   const trees = [
     makeTree(W - Math.max(60 * s, W * 0.06), edge.top(W * 0.94) + 4, Math.min(H * 0.55, W * 0.6), s, rnd, -0.04),
-    makeTree(W * 0.7, edge.top(W * 0.7) + 4, Math.min(H * 0.18, W * 0.22), s, rnd, 0.02),
+    // the small tree stands clear of the bench so it never hides the listeners
+    smallTreeBeside(bx, 80 * bu, +1, W * 0.7, Math.min(H * 0.18, W * 0.22), edge.top, s, rnd, 0.02),
   ];
   return {
     ledgeTop: edge.top,
@@ -387,7 +411,7 @@ function summitForeground(W: number, H: number, s: number, rnd: () => number) {
   const bench: BenchSpot = { x: sx, y: edge.top(sx) + 3 * su, u: su };
   const trees = [
     makeTree(Math.max(40 * s, W * 0.05), edge.top(W * 0.05) + 4, Math.min(H * 0.6, W * 0.62), s, rnd, 0.03),
-    makeTree(W * 0.33, edge.top(W * 0.33) + 4, Math.min(H * 0.16, W * 0.2), s, rnd, -0.02),
+    smallTreeBeside(sx, 80 * su, -1, W * 0.33, Math.min(H * 0.16, W * 0.2), edge.top, s, rnd, -0.02),
   ];
   return {
     ledgeTop: edge.top,

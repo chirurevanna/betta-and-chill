@@ -2,12 +2,12 @@
 
 Sit on Chamundi Hills and watch Mysuru slow down.
 
-Betta & Chill is a calm, illustrated view of Mysuru from one of two spots on the hill: the **Nandi viewpoint** or **the summit** by the Chamundeshwari temple tower. The site shows a QR code. Anyone can scan it to get a **phone remote** that sends birds across the sky, plays a sunset or sunrise, makes a breeze shake the trees, or makes it rain.
+Betta & Chill is a calm, illustrated view of Mysuru from one of two spots on the hill: the **Nandi viewpoint** or **the summit** by the Chamundeshwari temple tower. Visitors can sit on one of **20 shared benches** (4 seats each) with other people, listen to Kannada, Hindi or English radio together, and send birds across the sky, play a sunset or sunrise, make a breeze shake the trees, or make it rain.
 
 - The whole scene is drawn in code on a Canvas 2D: no images, no 3D engine, no video. The first load is about 16 KB gzipped of JS.
-- The ambient sound (wind, rain, birds, crickets, a distant temple bell) is synthesized live with Web Audio. There are no audio files, and it's muted until you turn it on.
-- The phone remote talks to the screen over **Supabase Realtime** broadcast, on the free tier. It uses no database tables and needs no backend. Each open screen gets its own private 6-character room.
-- Without Supabase keys, everything still works locally through the **✨ Play** tray and the keyboard.
+- Live Kannada radio streams (from [radio-browser.info](https://www.radio-browser.info)) play on every bench. Anyone on a bench can change its station, and it changes for everyone sitting there.
+- Who sits where is shared through **Supabase Realtime** presence, on the free tier. There's no login, no database tables and no backend; a seat frees itself when its tab closes.
+- Without Supabase keys, everything still works in solo mode: you can sit on any bench, but you'll only see yourself.
 
 ## Run it
 
@@ -25,15 +25,16 @@ npm run dev            # http://localhost:5173
 | W | Breeze |
 | R | Rain |
 | V | Switch viewpoint |
-| M | Sound |
-| Q | Show or hide the QR code |
+| P | Radio on / off |
+| N | Next station |
 
 **URL params** (handy for demos):
 - `?view=summit` opens at the summit (the default is the Nandi viewpoint; switch any time from the bottom bar).
 - `?time=day|golden|sunset|dusk|night` sets the starting light.
 - `?fx=rain,birds` starts those effects immediately.
+- `?monkey` sends a Chamundi monkey for the peanuts right away.
 
-## Phone remote setup (free)
+## Shared benches setup (free)
 
 1. Create a free project at [supabase.com](https://supabase.com).
 2. Go to **Project Settings → API** and copy the **Project URL** and the **anon / publishable key**.
@@ -46,32 +47,33 @@ npm run dev            # http://localhost:5173
 
 No tables, SQL or policies are needed. The anon key is meant to be public, and the site only uses public broadcast and presence channels.
 
-**Testing with a real phone locally:** run `npm run dev -- --host`, then open the **Network** URL that Vite prints (not `localhost`) on your computer. That makes the QR code point at an address your phone can reach. Your phone needs to be on the same Wi-Fi.
+To test sharing, open the site in two tabs (or two devices) and sit on the same bench. The free tier allows about 200 people online at once, comfortably more than 20 full benches (80 people). The bench count is `BENCH_COUNT` in `src/park/benches.ts`.
 
 ## Deploy on Vercel
 
 1. Push this repo to GitHub and **Import** it in Vercel. It auto-detects Vite, and `vercel.json` sets the build command, the output folder and cache headers.
 2. In **Project → Settings → Environment Variables**, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for Production and Preview.
-3. Deploy. The QR code always points at whatever domain the page is served from, so preview URLs work too.
+3. Deploy.
 
 The free Hobby plan is enough. The site is fully static, with no serverless functions.
 
 ## How it's built
 
 ```
-index.html / remote.html   two pages (big screen, phone remote)
-src/main.ts                screen: render loop, UI, effects, remote link
+index.html                 the page
+src/main.ts                render loop, UI, effects, radio and bench wiring
 src/scene/build.ts         layout: hills, city rows, landmarks, forest, foreground per viewpoint
 src/scene/landmarks.ts     Mysore Palace (with night bulbs), St. Philomena's, Lalitha Mahal,
                            lakes, Chamundeshwari gopuram, Nandi
 src/scene/render.ts        per-frame compositing, trees, parallax, cross-fade
 src/scene/palette.ts       colour keyframes day → golden → sunset → dusk → night (+ rain tint)
 src/scene/sky.ts           sky gradient, sun, moon, stars, clouds
+src/scene/bench.ts         the bench, listeners in headphones, the monkey
 src/effects/manager.ts     effect timing, envelopes and cooldowns
 src/effects/particles.ts   birds, leaves, rain
-src/audio.ts               synthesized ambience
-src/realtime.ts            lazy Supabase Realtime room (broadcast + presence)
-src/remote/                phone remote
+src/radio/                 Kannada stations and the always-on player
+src/park/benches.ts        shared benches (BENCH_COUNT): seats, conflicts, bench stations
+src/realtime.ts            lazy Supabase Realtime presence
 ```
 
 The landmarks sit in their real left-to-right order as seen from the hill. The Palace is front and centre, St. Philomena's twin spires are far behind it, and Lalitha Mahal and Karanji Lake are toward the hill on the right. Kukkarahalli Lake is far to the left.
@@ -84,5 +86,3 @@ The landmarks sit in their real left-to-right order as seen from the hill. The P
 | Breeze | 10 s |
 | Rain | 20 s |
 | Sunset / sunrise | until the current transition finishes (40 s) |
-
-The screen enforces these, so a busy remote can't flood it.

@@ -420,7 +420,11 @@ export function nandi(x: number, baseY: number, u: number) {
   light.bezierCurveTo(16, -69, 8, -64, 2, -52);
   light.bezierCurveTo(-14, -48, -46, -46, -60, -40);
   light.closePath();
+  // lift the pen first: without these moveTo calls the path drew a line from the back down to
+  // the creases and filled a stray triangle across the bull's side
+  light.moveTo(-52, -3);
   light.ellipse(-30, -3, 22, 3, 0, Math.PI, 0); // folded rear leg crease
+  light.moveTo(41, -3);
   light.ellipse(50, -3, 9, 2.2, 0, Math.PI, 0);
 
   const deco = new Path2D(); // bell garland round the neck + eye

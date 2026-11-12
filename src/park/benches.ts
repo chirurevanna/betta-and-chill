@@ -2,7 +2,7 @@ import { STATIONS } from '../radio/stations';
 import { joinPresence, type PresenceLink } from '../realtime';
 import { storageGet, storageSet } from '../util';
 
-export const BENCH_COUNT = 100;
+export const BENCH_COUNT = 20;
 export const SEATS = 4;
 
 /** What each tab publishes on the shared `bc:park` presence channel. */
@@ -41,10 +41,12 @@ function randomId(n = 10) {
 
 const STATION_IDS = new Set(STATIONS.map((s) => s.id));
 
-export const defaultStation =(bench: number) => STATIONS[bench % STATIONS.length].id;
+/** Every bench starts on Kannada Hits until someone sitting there picks another station. */
+export const DEFAULT_STATION = 'kannadahits';
+export const defaultStation = (_bench: number) => DEFAULT_STATION;
 
 /**
- * 100 shared benches with 4 seats each. No login and no database: every tab publishes where it
+ * BENCH_COUNT shared benches with 4 seats each. No login and no database: every tab publishes where it
  * sits through Supabase presence, so a seat frees itself when the tab closes. Each bench has one
  * station; the most recent pick by anyone on the bench wins.
  */

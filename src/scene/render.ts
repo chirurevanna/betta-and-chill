@@ -1,7 +1,7 @@
 import { Birds, Leaves, Rain } from '../effects/particles';
 import type { Effects } from '../effects/manager';
 import { clamp, css, lerp, mix, smoothstep } from '../util';
-import { BenchScene } from './bench';
+import { BenchScene, drawFarBenches } from './bench';
 import { buildLayout, type Layout } from './build';
 import { goldenOf, nightOf, paletteAt, type PaletteKey } from './palette';
 import { Sky } from './sky';
@@ -226,6 +226,7 @@ export class Renderer {
     ctx.fill(layout.forest);
     ctx.fillStyle = c.forestLight;
     ctx.fill(layout.forestLight);
+    drawFarBenches(ctx, f, W, layout.forestTop, layout.s, layout.bench.x);
     ctx.restore();
 
     this.birds.draw(ctx, f, W);
@@ -234,8 +235,9 @@ export class Renderer {
     ctx.save();
     ctx.translate(f.px, f.py);
     layout.drawForeground(ctx, f);
-    this.bench.draw(ctx, f, layout.bench, W, this.reduced);
     for (const t of layout.trees) this.drawTree(ctx, t, f);
+    // after the trees: nothing in the scenery may ever cover the people on the bench
+    this.bench.draw(ctx, f, layout.bench, W, this.reduced);
     this.leaves.update(f, layout.trees, W, H, layout.s, (t) => this.treeSway(t, f));
     this.leaves.draw(ctx, f);
     ctx.restore();

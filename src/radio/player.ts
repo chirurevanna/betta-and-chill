@@ -1,5 +1,5 @@
 import { clamp, storageGet, storageSet } from '../util';
-import { STATIONS, type Station } from './stations';
+import { LANGS, STATIONS, type Lang, type Station } from './stations';
 
 const STALL_MS = 10_000;
 /** after every station failed, wait this long and try the whole list again */
@@ -23,13 +23,12 @@ export class Radio {
   private stations: Station[] = STATIONS.map((s) => ({ ...s }));
   /** Radio Browser's last health check per station id */
   private directory = new Map<string, Health>();
-  /** language tag from the directory; anything other than exactly "kannada" is skipped */
-  private language = new Map<string, string>();
+  /** language tag from the directory; a station is skipped if it no longer matches its language */
+  private dirLang = new Map<string, string>();
   /** what actually happened when this browser tried to play it */
   private session = new Map<string, Health>();
   private idx: number;
   private vol: number;
-  private duckFactor = 1;
   private wanted = false;
   private failures = 0;
   private stallTimer = 0;
@@ -40,8 +39,8 @@ export class Radio {
 
   constructor() {
     this.el.preload = 'none';
-    const saved = this.stations.findIndex((s) => s.id === storageGet('bc.radio.station'));
-    this.idx = saved >= 0 ? saved : 0;
+    // every visit starts on Kannada Hits; the bench may switch it once seated
+    this.idx = Math.max(0, this.stations.findIndex((s) => s.id === 'kannadahits'));
     const v = Number(storageGet('bc.radio.vol'));
     this.vol = Number.isFinite(v) && v > 0 && v <= 1 ? v : 0.7;
     this.applyVolume();
@@ -100,7 +99,7 @@ export class Radio {
         const s = this.stations.find((x) => x.uuid === r.stationuuid);
         if (!s) continue;
         this.directory.set(s.id, r.lastcheckok === 1 ? 'up' : 'down');
-        this.language.set(s.id, r.language.trim().toLowerCase());
+        this.dirLang.set(s.id, r.language.trim().toLowerCase());
       }
     } catch (e) {
       console.warn(`${LOG} could not reach radio-browser.info for station health`, LOG_STYLE, e);
@@ -113,7 +112,7 @@ export class Radio {
     const label: Record<Health, string> = { unknown: '–', up: '✅ up', down: '❌ down' };
     const rows = this.stations.map((s, i) => ({
       station: s.name,
-      language: this.language.get(s.id) ?? '–',
+      language: `${s.lang} (directory: ${this.dirLang.get(s.id) ?? '–'})`,
       directory: label[this.directory.get(s.id) ?? 'unknown'],
       'this browser': label[this.session.get(s.id) ?? 'unknown'],
       playing: this.wanted && i === this.idx ? '▶' : '',
@@ -157,17 +156,31 @@ export class Radio {
     return this.turnOn();
   }
 
-  /** All selectable (Kannada) stations with their current availability. */
-  list(): { id: string; name: string; available: boolean }[] {
-    return this.stations
-      .filter((s) => this.isKannada(s))
-      .map((s) => ({ id: s.id, name: s.name, available: this.isAvailable(s) }));
+  /** Language of the current station. */
+  get lang(): Lang {
+    return this.station.lang;
+  }
+
+  /** Does this language have any station to play yet? */
+  hasLang(lang: Lang) {
+    return this.stations.some((s) => s.lang === lang && this.matchesLang(s));
+  }
+
+  /** How many stations this language has. */
+  countLang(lang: Lang) {
+    return this.stations.filter((s) => s.lang === lang && this.matchesLang(s)).length;
+  }
+
+  /** The station to start a language on: the first one that's up, else the first one. */
+  firstIdOf(lang: Lang): string | null {
+    const pool = this.stations.filter((s) => s.lang === lang && this.matchesLang(s));
+    return (pool.find((s) => this.isAvailable(s)) ?? pool[0])?.id ?? null;
   }
 
   /** A person picked a station: switch to it and make sure the radio is on. */
   async select(id: string): Promise<PlayResult> {
     const i = this.stations.findIndex((s) => s.id === id);
-    if (i < 0 || !this.isKannada(this.stations[i])) return 'ok';
+    if (i < 0 || !this.matchesLang(this.stations[i])) return 'ok';
     if (i === this.idx && this.wanted) return 'ok';
     this.idx = i;
     storageSet('bc.radio.station', this.station.id);
@@ -212,15 +225,20 @@ export class Radio {
     return 'ok';
   }
 
-  /** The station `step` places away (skipping non-Kannada ones), without switching to it. */
+  /** The station `step` places away within the current language, without switching to it. */
   stationIdAt(step: number): string {
+    return this.stations[this.indexAt(step)].id;
+  }
+
+  private indexAt(step: number) {
     const n = this.stations.length;
+    const lang = this.lang;
     let j = this.idx;
     for (let i = 0; i < n; i++) {
       j = (j + step + n) % n;
-      if (this.isKannada(this.stations[j])) break;
+      if (this.stations[j].lang === lang && this.matchesLang(this.stations[j])) return j;
     }
-    return this.stations[j].id;
+    return this.idx;
   }
 
   next() {
@@ -237,21 +255,14 @@ export class Radio {
     this.onChange();
   }
 
-  /** Lower the radio while rain is heavy so the synthesized rain still comes through. */
-  duck(rain: number) {
-    const f = 1 - clamp(rain) * 0.45;
-    if (Math.abs(f - this.duckFactor) < 0.01) return;
-    this.duckFactor = f;
-    this.applyVolume();
-  }
-
-  private isKannada(s: Station) {
-    const lang = this.language.get(s.id);
-    return lang === undefined || lang === 'kannada'; // unknown = trust the curated list
+  /** The directory still tags this station with exactly its language (unknown = trust the list). */
+  private matchesLang(s: Station) {
+    const tag = this.dirLang.get(s.id);
+    return tag === undefined || tag === LANGS.find((l) => l.id === s.lang)?.tag;
   }
 
   private isAvailable(s: Station) {
-    return this.isKannada(s) && this.session.get(s.id) !== 'down' && this.directory.get(s.id) !== 'down';
+    return this.matchesLang(s) && this.session.get(s.id) !== 'down' && this.directory.get(s.id) !== 'down';
   }
 
   private mark(s: Station, h: Health) {
@@ -259,13 +270,21 @@ export class Radio {
     this.session.set(s.id, h);
   }
 
-  /** Move to the next station not known to be down (stays put if all are). */
+  /**
+   * Move to the next station not known to be down: another one in the same language first,
+   * any language only if that one has nothing left (stays put if everything is down).
+   */
   private skipToAvailable() {
-    for (let i = 1; i <= this.stations.length; i++) {
-      const j = (this.idx + i) % this.stations.length;
-      if (this.isAvailable(this.stations[j])) {
-        this.idx = j;
-        return;
+    const n = this.stations.length;
+    const lang = this.lang;
+    for (const sameLang of [true, false]) {
+      for (let i = 1; i <= n; i++) {
+        const j = (this.idx + i) % n;
+        const s = this.stations[j];
+        if ((!sameLang || s.lang === lang) && this.isAvailable(s)) {
+          this.idx = j;
+          return;
+        }
       }
     }
   }
@@ -281,15 +300,11 @@ export class Radio {
   }
 
   private applyVolume() {
-    this.el.volume = clamp(this.vol * this.duckFactor, 0, 1);
+    this.el.volume = clamp(this.vol, 0, 1);
   }
 
   private async go(step: number): Promise<PlayResult> {
-    const n = this.stations.length;
-    for (let i = 0; i < n; i++) {
-      this.idx = (this.idx + step + n) % n;
-      if (this.isKannada(this.station)) break; // never land on a non-Kannada station
-    }
+    this.idx = this.indexAt(step); // stays within the current language
     storageSet('bc.radio.station', this.station.id);
     this.failures = 0;
     if (!this.wanted) {
@@ -361,8 +376,7 @@ export class Radio {
       return;
     }
 
-    this.idx = (this.idx + 1) % this.stations.length;
-    if (!this.isAvailable(this.station)) this.skipToAvailable();
+    this.skipToAvailable();
     storageSet('bc.radio.station', this.station.id);
     this.logStations();
     this.load();
