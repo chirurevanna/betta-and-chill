@@ -121,12 +121,36 @@ export class BenchScene {
   private coneBackAt = 0;
   private box = { x: 0, y: 0, w: 0, h: 0 };
   private ink = '';
+  /** what each seat shows right now, with a fade so people appear and leave gently */
+  private slots: { view: SeatView | null; a: number; leaving: boolean }[] = [0, 1, 2, 3].map(() => ({
+    view: null,
+    a: 0,
+    leaving: false,
+  }));
+  private last = { x: 0, y: 0, u: 1, px: 0, py: 0 };
 
   setSeats(seats: (SeatView | null)[], now: number) {
     const hadMe = this.seats.some((s) => s?.me);
     const hasMe = seats.some((s) => s?.me);
     if (hasMe && !hadMe) this.youAt = now;
     this.seats = seats;
+    seats.forEach((s, i) => {
+      const slot = this.slots[i];
+      if (!s) {
+        if (slot.view) slot.leaving = true; // fade out, then clear
+      } else if (!slot.view || slot.view.seed !== s.seed) {
+        this.slots[i] = { view: s, a: 0, leaving: false }; // someone new: fade in
+      } else {
+        slot.view = s; // same person (me / held flags may have changed)
+        slot.leaving = false;
+      }
+    });
+  }
+
+  /** Screen point just above the head of whoever sits in `seat` (for hearts from a benchmate). */
+  seatPoint(seat: number) {
+    const { x, y, u, px, py } = this.last;
+    return { x: x + SEAT_X[seat] * u + px, y: y - 82 * u + py };
   }
 
   /** Bring a monkey along soon (for demos: ?monkey). */
@@ -149,6 +173,7 @@ export class BenchScene {
 
     this.updateMonkey(f, W, spot, reduced);
     this.box = { x: spot.x - 80 * u + f.px, y: spot.y - 92 * u + f.py, w: 160 * u, h: 92 * u };
+    this.last = { x: spot.x, y: spot.y, u, px: f.px, py: f.py };
 
     ctx.save();
     ctx.translate(spot.x, spot.y);
@@ -160,10 +185,20 @@ export class BenchScene {
     ctx.ellipse(0, 1, 84, 5, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // people behind the backrest (seen from behind, looking at the city)
+    // people behind the backrest (seen from behind, looking at the city); they fade in and out,
+    // and someone whose connection dropped stays dimmed until they're back or their seat expires
     for (let i = 0; i < 4; i++) {
-      const s = this.seats[i];
-      if (s) this.drawPerson(ctx, f, SEAT_X[i], s, lit, reduced);
+      const slot = this.slots[i];
+      if (!slot.view) continue;
+      const step = reduced ? 1 : f.dt / 0.6;
+      slot.a = slot.leaving ? Math.max(0, slot.a - step) : Math.min(1, slot.a + step);
+      if (slot.leaving && slot.a <= 0) {
+        slot.view = null;
+        continue;
+      }
+      ctx.globalAlpha = slot.a * (slot.view.held ? 0.4 : 1);
+      this.drawPerson(ctx, f, SEAT_X[i], slot.view, lit, reduced);
+      ctx.globalAlpha = 1;
     }
 
     // bench: stone uprights + seat edge + wooden slats of the backrest (we see its back)
@@ -235,7 +270,7 @@ export class BenchScene {
     reduced: boolean,
   ) {
     const L = lookOf(s.seed);
-    const nodding = !reduced && (!s.me || this.listening);
+    const nodding = !reduced && !s.held && (!s.me || this.listening);
     // slow nod: a soft dip and lift, with a lazy side-to-side sway
     const w = Math.sin(f.time * Math.PI * 2 * L.rate + L.phase);
     const dip = nodding ? Math.pow(Math.max(0, w), 1.6) * 2.4 : 0;

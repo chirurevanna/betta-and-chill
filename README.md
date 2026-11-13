@@ -36,23 +36,27 @@ npm run dev            # http://localhost:5173
 
 ## Shared benches setup (free)
 
-1. Create a free project at [supabase.com](https://supabase.com).
+1. Create a free project at [supabase.com](https://supabase.com). Pick the **Mumbai (ap-south-1)** region so it's close to listeners.
 2. Go to **Project Settings → API** and copy the **Project URL** and the **anon / publishable key**.
 3. Create `.env.local`, following `.env.example`:
    ```
    VITE_SUPABASE_URL=https://xxxx.supabase.co
    VITE_SUPABASE_ANON_KEY=...
    ```
-4. Restart `npm run dev`.
+4. In **SQL Editor**, run [`supabase/hearts.sql`](supabase/hearts.sql). It creates the one-row heart total and the `add_hearts` function, the only thing visitors can call.
+5. Restart `npm run dev`.
 
-No tables, SQL or policies are needed. The anon key is meant to be public, and the site only uses public broadcast and presence channels.
+Seats, bench stations and bench hearts use Realtime presence and broadcast on the public `bc:park` channel, so they need no tables. The anon key is meant to be public.
 
-To test sharing, open the site in two tabs (or two devices) and sit on the same bench. The free tier allows about 200 people online at once, comfortably more than 20 full benches (80 people). The bench count is `BENCH_COUNT` in `src/park/benches.ts`.
+- A seat frees itself when its tab closes. If a phone locks or the app goes to the background, the seat is **held for 5 minutes**, shown dimmed to benchmates. Coming back within that time puts the person back in the same seat. Pressing **Leave** frees it straight away.
+- Heart taps float up from the tapper's figure on their benchmates' screens. They're also added to one shared total, logged in the console as "hearts from everyone".
+
+To test sharing, open the site in two browser profiles (or two devices) and sit on the same bench. The free tier allows about 200 people online at once, comfortably more than 20 full benches (80 people). The bench count is `BENCH_COUNT` in `src/park/benches.ts`.
 
 ## Deploy on Vercel
 
 1. Push this repo to GitHub and **Import** it in Vercel. It auto-detects Vite, and `vercel.json` sets the build command, the output folder and cache headers.
-2. In **Project → Settings → Environment Variables**, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for Production and Preview.
+2. In **Project → Settings → Environment Variables**, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for Production and Preview. They're baked in at build time, so redeploy after adding them.
 3. Deploy.
 
 The free Hobby plan is enough. The site is fully static, with no serverless functions.

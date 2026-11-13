@@ -5,6 +5,7 @@ import { isEffect, type EffectType } from './protocol';
 import { BENCH_COUNT, BenchPark, SEATS } from './park/benches';
 import { Radio, type PlayResult } from './radio/player';
 import { LANGS, STATIONS, type Lang } from './radio/stations';
+import { addHearts, realtimeConfigured } from './realtime';
 import { Renderer } from './scene/render';
 import type { ViewId } from './scene/types';
 
@@ -92,6 +93,102 @@ plNext.addEventListener('click', () => void radioCommand({ action: 'next' }));
 for (const b of langBtns) b.addEventListener('click', () => void radioCommand({ action: 'lang', lang: b.dataset.lang as Lang }));
 
 radio.onChange = renderPlayer;
+
+/* ---------- hearts: tap to send a few floating up, like a live stream ---------- */
+const heartBtn = $<HTMLButtonElement>('heart');
+const heartLayer = $('hearts');
+const HEART_SVG = heartBtn.innerHTML;
+const HEART_COLORS = ['#ff5a7a', '#ff8fab', '#f5b971', '#b8a9ff', '#ff6b6b'];
+let heartsThisVisit = 0;
+
+/** One heart floating up from (x, y) — by default from the heart button. */
+function floatHeart(delay: number, from?: { x: number; y: number }) {
+  if (heartLayer.childElementCount > 60) return; // keep frantic tapping cheap
+  const size = 22 + Math.random() * 14;
+  let x: number;
+  let y: number;
+  if (from) {
+    x = from.x;
+    y = from.y;
+  } else {
+    const r = heartBtn.getBoundingClientRect();
+    x = r.left + r.width / 2;
+    y = r.top;
+  }
+  const h = document.createElement('span');
+  h.className = 'float-heart';
+  h.innerHTML = HEART_SVG;
+  h.style.cssText = [
+    `left:${x - size / 2 + (Math.random() - 0.5) * 10}px`,
+    `top:${y - size * 0.4}px`,
+    `width:${size}px`,
+    `height:${size}px`,
+    `color:${HEART_COLORS[(Math.random() * HEART_COLORS.length) | 0]}`,
+    `--rise:${-(220 + Math.random() * 180)}px`,
+    `--sway:${(Math.random() - 0.5) * 90}px`,
+    `--tilt:${(Math.random() - 0.5) * 40}deg`,
+    `animation-duration:${2.4 + Math.random() * 1.2}s`,
+    `animation-delay:${delay}ms`,
+  ].join(';');
+  h.addEventListener('animationend', () => h.remove());
+  setTimeout(() => h.remove(), 4500 + delay); // fallback when animations are off (reduced motion)
+  heartLayer.append(h);
+}
+
+// taps are batched: to the bench every ~300 ms, to the all-visitor total every ~2 s
+let benchPending = 0;
+let benchTimer = 0;
+let totalPending = 0;
+let totalTimer = 0;
+let everyone: number | null = null;
+
+function flushTotal() {
+  totalTimer = 0;
+  const n = Math.min(totalPending, 50);
+  totalPending -= n;
+  void addHearts(n).then((t) => {
+    if (t === null) return;
+    everyone = t;
+    console.log(`♥ hearts from everyone so far: ${t.toLocaleString()}`);
+  });
+  if (totalPending > 0) totalTimer = window.setTimeout(flushTotal, 2000);
+}
+
+heartBtn.addEventListener('click', () => {
+  heartsThisVisit++;
+  let device = heartsThisVisit;
+  try {
+    device = Number(localStorage.getItem('bc.hearts') ?? 0) + 1;
+    localStorage.setItem('bc.hearts', String(device));
+  } catch {
+    /* storage blocked: the visit count is still right */
+  }
+  const all = everyone === null ? '' : ` · ${(everyone + totalPending + 1).toLocaleString()} from everyone`;
+  console.log(`♥ heart pressed: ${heartsThisVisit} this visit · ${device} on this device${all}`);
+
+  const n = 2 + ((Math.random() * 2) | 0);
+  for (let i = 0; i < n; i++) floatHeart(i * 110);
+  heartBtn.classList.remove('pop');
+  void heartBtn.offsetWidth; // restart the little pop
+  heartBtn.classList.add('pop');
+
+  // benchmates see hearts rise from my figure
+  benchPending++;
+  benchTimer ||= window.setTimeout(() => {
+    park.sendHeart(benchPending);
+    benchPending = 0;
+    benchTimer = 0;
+  }, 300);
+  // and every tap counts towards the shared total
+  totalPending++;
+  if (realtimeConfigured) totalTimer ||= window.setTimeout(flushTotal, 2000);
+});
+
+// a benchmate tapped their heart: hearts float up from their head on my screen
+park.onHeart = ({ seat, n }) => {
+  const at = renderer.bench.seatPoint(seat);
+  for (let i = 0; i < Math.min(n * 2, 8); i++) floatHeart(i * 120, at);
+};
 renderPlayer();
 
 function reportRadio(r: PlayResult) {

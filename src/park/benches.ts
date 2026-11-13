@@ -20,7 +20,19 @@ export interface Sitter {
 export interface SeatView {
   seed: string;
   me: boolean;
+  /** this person's connection dropped (phone locked, app switched); their seat is kept a while */
+  held?: boolean;
 }
+
+/** A heart tap sent to everyone on the same bench. */
+export interface HeartMsg {
+  bench: number;
+  seat: number;
+  n: number;
+}
+
+/** How long a seat is kept for someone whose connection dropped. */
+export const HOLD_MS = 5 * 60_000;
 
 export interface BenchView {
   id: number;
@@ -46,9 +58,11 @@ export const DEFAULT_STATION = 'kannadahits';
 export const defaultStation = (_bench: number) => DEFAULT_STATION;
 
 /**
- * BENCH_COUNT shared benches with 4 seats each. No login and no database: every tab publishes where it
- * sits through Supabase presence, so a seat frees itself when the tab closes. Each bench has one
- * station; the most recent pick by anyone on the bench wins.
+ * BENCH_COUNT shared benches with 4 seats each. No login and no database: every tab publishes where
+ * it sits through Supabase presence. When someone's connection drops (phone locked, app switched)
+ * their seat is held, dimmed, for 5 minutes; coming back within that time returns them to it.
+ * Each bench has one station; the most recent pick by anyone on the bench wins. Heart taps are
+ * broadcast to the bench.
  */
 export class BenchPark {
   readonly seed: string;
@@ -58,6 +72,8 @@ export class BenchPark {
   private benches: BenchView[] = [];
   private lastStation = '';
   private _shared = false;
+  /** seats of people whose connection dropped, kept until `until` (keyed by their seed) */
+  private held = new Map<string, { s: Sitter; until: number }>();
 
   /** anything changed (occupancy, my seat, stations) */
   onChange: () => void = () => {};
@@ -65,6 +81,8 @@ export class BenchPark {
   onStation: (id: string) => void = () => {};
   /** someone else got my seat at the same instant and the bench is full */
   onBumped: () => void = () => {};
+  /** a benchmate tapped the heart */
+  onHeart: (msg: HeartMsg) => void = () => {};
 
   constructor() {
     let seed = storageGet('bc.me');
@@ -75,6 +93,12 @@ export class BenchPark {
     this.seed = seed;
     this.me = { seed, bench: null, seat: 0, sitAt: 0, station: '', stationAt: 0 };
     this.recompute();
+    // let held seats run out, and keep "last seen" fresh so a locked phone can come back to its seat
+    setInterval(() => {
+      if (this.held.size) this.recompute();
+      this.remember();
+    }, 15_000);
+    addEventListener('pagehide', () => this.remember());
   }
 
   /** true once connected to other visitors (false in solo mode) */
@@ -97,6 +121,12 @@ export class BenchPark {
   async connect() {
     this.link = await joinPresence<Sitter>('bc:park', this.key, {
       onSync: () => this.recompute(),
+      onLeave: (_key, metas) => this.hold(metas),
+      onMessage: (event, payload) => {
+        if (event === 'heart' && isHeart(payload) && payload.bench === this.me.bench && payload.seat !== this.me.seat) {
+          this.onHeart(payload);
+        }
+      },
       onStatus: (s) => {
         this._shared = s === 'online';
         if (s === 'online') console.info(`${LOG} connected — sharing benches with everyone online`, LOG_STYLE);
@@ -107,12 +137,42 @@ export class BenchPark {
     if (this.link && this.me.bench !== null) this.link.track(this.me);
   }
 
-  /** Re-take the bench this tab sat on before a reload, if there's still room. */
+  /**
+   * Back within 5 minutes (reload, phone unlocked, app reopened): take the same seat again with
+   * the original sit-down time, so the earliest-claim rule hands it back even if someone grabbed it.
+   */
   restore(): boolean {
-    const raw = storageGet('bc.bench', 'session');
-    if (!raw || !/^\d+$/.test(raw)) return false;
-    const b = Number(raw);
-    return b < BENCH_COUNT && this.sit(b);
+    let saved: { bench: number; seat: number; sitAt: number; at: number } | null = null;
+    try {
+      saved = JSON.parse(storageGet('bc.seat') ?? 'null');
+    } catch {
+      saved = null;
+    }
+    if (
+      !saved ||
+      Date.now() - saved.at > HOLD_MS ||
+      !Number.isInteger(saved.bench) ||
+      saved.bench < 0 ||
+      saved.bench >= BENCH_COUNT ||
+      !Number.isInteger(saved.seat) ||
+      saved.seat < 0 ||
+      saved.seat >= SEATS
+    ) {
+      return false;
+    }
+    const b = this.benches[saved.bench];
+    this.held.delete(this.seed);
+    this.me = { ...this.me, bench: saved.bench, seat: saved.seat, sitAt: saved.sitAt, station: b.station, stationAt: b.stationAt };
+    this.publish();
+    console.info(`${LOG} back on bench ${saved.bench + 1}, seat ${saved.seat + 1}`, LOG_STYLE);
+    return this.me.bench !== null; // false if the bench filled up meanwhile and we got bumped
+  }
+
+  /** Send heart taps to everyone on my bench. */
+  sendHeart(n: number) {
+    if (this.me.bench === null || n <= 0) return;
+    const msg: HeartMsg = { bench: this.me.bench, seat: this.me.seat, n: Math.min(n, 20) };
+    this.link?.send('heart', msg);
   }
 
   sit(bench: number): boolean {
@@ -129,7 +189,6 @@ export class BenchPark {
       station: b.station,
       stationAt: b.stationAt,
     };
-    storageSet('bc.bench', String(bench), 'session');
     this.publish();
     console.info(`${LOG} sat on bench ${bench + 1}, seat ${free + 1}`, LOG_STYLE);
     return true;
@@ -149,7 +208,7 @@ export class BenchPark {
     if (this.me.bench === null) return;
     console.info(`${LOG} left bench ${this.me.bench + 1}`, LOG_STYLE);
     this.me = { ...this.me, bench: null, seat: 0, sitAt: 0, station: '', stationAt: 0 };
-    storageSet('bc.bench', '', 'session');
+    storageSet('bc.seat', ''); // chose to go: nothing to come back to
     this.lastStation = '';
     this.publish();
   }
@@ -165,6 +224,23 @@ export class BenchPark {
   private publish() {
     this.link?.track(this.me);
     this.recompute();
+    this.remember();
+  }
+
+  /** Save my seat with a "last seen" time, for coming back after a locked phone or relaunch. */
+  private remember() {
+    if (this.me.bench === null) return;
+    const { bench, seat, sitAt } = this.me;
+    storageSet('bc.seat', JSON.stringify({ bench, seat, sitAt, at: Date.now() }));
+  }
+
+  /** Someone's presence went away: keep their seat for a while (dropped unless they're back). */
+  private hold(metas: Sitter[]) {
+    const until = Date.now() + HOLD_MS;
+    for (const s of metas) {
+      if (isSitter(s) && s.bench !== null && s.seed !== this.seed) this.held.set(s.seed, { s, until });
+    }
+    this.recompute();
   }
 
   private everyone(): [string, Sitter][] {
@@ -175,6 +251,10 @@ export class BenchPark {
 
   private recompute() {
     const people = this.everyone();
+    // a held seat ends when time runs out or its owner is present again (back, re-tracked, or left on purpose)
+    const now = Date.now();
+    const present = new Set([...(this.link?.state().values() ?? [])].map((s) => (s as Sitter).seed));
+    for (const [seed, h] of this.held) if (h.until < now || present.has(seed)) this.held.delete(seed);
     // earliest claim on a seat keeps it
     people.sort(([ka, a], [kb, b]) => a.sitAt - b.sitAt || (ka < kb ? -1 : 1));
 
@@ -215,6 +295,14 @@ export class BenchPark {
         return;
       }
     }
+    // held seats count as taken, but any live claim on the same seat wins
+    for (const { s } of this.held.values()) {
+      const b = benches[s.bench!];
+      if (b.seats[s.seat] === null) {
+        b.seats[s.seat] = { seed: s.seed, me: false, held: true };
+        b.count++;
+      }
+    }
     this.benches = benches;
 
     const mine = this.myBench;
@@ -239,5 +327,19 @@ function isSitter(v: unknown): v is Sitter {
     typeof s.sitAt === 'number' &&
     typeof s.station === 'string' &&
     typeof s.stationAt === 'number'
+  );
+}
+
+function isHeart(v: unknown): v is HeartMsg {
+  if (!v || typeof v !== 'object') return false;
+  const h = v as Partial<HeartMsg>;
+  return (
+    Number.isInteger(h.bench) &&
+    Number.isInteger(h.seat) &&
+    h.seat! >= 0 &&
+    h.seat! < SEATS &&
+    typeof h.n === 'number' &&
+    h.n > 0 &&
+    h.n <= 20
   );
 }

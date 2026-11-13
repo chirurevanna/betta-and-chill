@@ -24,17 +24,28 @@ export interface PresenceLink<M> {
   track(meta: M): void;
   /** everyone currently present, including this tab, keyed by presence key */
   state(): Map<string, M>;
+  /** broadcast a small message to everyone else on the channel */
+  send(event: string, payload: unknown): void;
   close(): void;
 }
 
+export interface PresenceHandlers<M> {
+  onSync(): void;
+  onStatus?(s: LinkStatus): void;
+  /** presences that just went away (tab closed, phone locked, connection lost, or re-tracked) */
+  onLeave?(key: string, metas: M[]): void;
+  onMessage?(event: string, payload: unknown): void;
+}
+
 /**
- * Presence-only channel: each tab publishes one small object; it disappears automatically when
- * the tab closes. Returns null when Supabase isn't configured.
+ * Presence + broadcast channel: each tab publishes one small object, which disappears
+ * automatically when the tab closes, and can send small broadcast messages to the others.
+ * Returns null when Supabase isn't configured.
  */
 export async function joinPresence<M extends object>(
   channel: string,
   key: string,
-  h: { onSync(): void; onStatus?(s: LinkStatus): void },
+  h: PresenceHandlers<M>,
 ): Promise<PresenceLink<M> | null> {
   if (!URL_ || !KEY) {
     h.onStatus?.('unconfigured');
@@ -42,11 +53,15 @@ export async function joinPresence<M extends object>(
   }
   h.onStatus?.('connecting');
   const client = await getClient();
-  const ch = client.channel(channel, { config: { presence: { key, enabled: true } } });
+  const ch = client.channel(channel, {
+    config: { presence: { key, enabled: true }, broadcast: { self: false, ack: false } },
+  });
   let current: M | null = null;
   let subscribed = false;
 
   ch.on('presence', { event: 'sync' }, () => h.onSync());
+  ch.on('presence', { event: 'leave' }, (e: { key: string; leftPresences: M[] }) => h.onLeave?.(e.key, e.leftPresences));
+  ch.on('broadcast', { event: '*' }, (msg: { event: string; payload: unknown }) => h.onMessage?.(msg.event, msg.payload));
   ch.subscribe((status: string) => {
     if (status === 'SUBSCRIBED') {
       subscribed = true;
@@ -56,6 +71,13 @@ export async function joinPresence<M extends object>(
       subscribed = false;
       h.onStatus?.('offline');
     }
+  });
+
+  // phones drop the socket while locked or in the background: reconnect and re-announce on return
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    if (!client.isConnected()) client.connect();
+    if (subscribed && current) void ch.track(current);
   });
 
   return {
@@ -72,8 +94,32 @@ export async function joinPresence<M extends object>(
       }
       return out;
     },
+    send(event, payload) {
+      if (subscribed) void ch.send({ type: 'broadcast', event, payload });
+    },
     close() {
       void ch.unsubscribe();
     },
   };
+}
+
+/**
+ * Add `n` heart taps (0–50) to the shared all-visitor total and get the new total back.
+ * Uses the `add_hearts` Postgres function (supabase/hearts.sql) over plain fetch. Null when
+ * Supabase isn't configured or the call fails.
+ */
+export async function addHearts(n: number): Promise<number | null> {
+  if (!URL_ || !KEY) return null;
+  try {
+    const res = await fetch(`${URL_.replace(/\/$/, '')}/rest/v1/rpc/add_hearts`, {
+      method: 'POST',
+      headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ n: Math.max(0, Math.min(50, Math.round(n))) }),
+    });
+    if (!res.ok) return null;
+    const total = Number(await res.json());
+    return Number.isFinite(total) ? total : null;
+  } catch {
+    return null;
+  }
 }

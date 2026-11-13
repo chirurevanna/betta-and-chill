@@ -306,6 +306,62 @@ button {
     opacity: 0.9;
   }
 }
+/* heart button + the hearts it sends floating up */
+.heart-btn {
+  color: #ff6b8a;
+}
+.heart-btn:hover:not(:disabled) {
+  box-shadow: 0 0 18px rgba(255, 107, 138, 0.45);
+}
+.heart-btn.pop svg {
+  animation: heart-pop 0.35s ease;
+}
+@keyframes heart-pop {
+  40% {
+    transform: scale(1.3);
+  }
+}
+.hearts {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 4;
+}
+.float-heart {
+  position: fixed;
+  opacity: 0;
+  filter: drop-shadow(0 2px 6px rgba(10, 8, 30, 0.35));
+  animation-name: heart-rise;
+  animation-timing-function: cubic-bezier(0.25, 0.6, 0.4, 1);
+  animation-fill-mode: forwards;
+}
+.float-heart svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+@keyframes heart-rise {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.4) rotate(0);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(calc(var(--sway) * -0.15), calc(var(--rise) * 0.08)) scale(1.05) rotate(0);
+  }
+  45% {
+    transform: translate(calc(var(--sway) * 0.6), calc(var(--rise) * 0.45)) scale(1) rotate(var(--tilt));
+  }
+  75% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--sway), var(--rise)) scale(0.9) rotate(calc(var(--tilt) * -0.5));
+  }
+}
+
 /* narrow screens: the player keeps the bottom to itself (below the bench); the other buttons
    move up into the empty sky at the top right, with the Sky effects opening underneath */
 @media (max-width: 760px) {
@@ -328,8 +384,16 @@ button {
     font-size: 0.8rem;
   }
   .player {
-    gap: 8px;
-    padding: 6px 10px 6px 6px;
+    gap: 6px;
+    padding: 6px 8px 6px 6px;
+  }
+  .lang-btn {
+    min-width: 32px;
+    padding: 0 8px;
+  }
+  .pl-btn {
+    width: 36px;
+    height: 36px;
   }
 }
 /* very narrow phones: the title needs the whole top line, so the buttons drop just below it */
