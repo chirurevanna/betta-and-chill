@@ -33,6 +33,7 @@
       <div class="hud-row">
         <button id="btn-view" class="pill" type="button"></button>
         <button id="btn-play" class="pill" type="button" aria-expanded="false" aria-controls="tray" title="Birds, sunset, breeze, rain">Sky</button>
+        <button id="btn-kagga" class="pill" type="button" aria-expanded="false" aria-controls="kagga-card" title="A kagga by D.V. Gundappa">Kagga</button>
         <button id="btn-bench" class="pill" type="button" aria-pressed="false" aria-expanded="false" aria-controls="bench-panel">Bench</button>
       </div>
     </div>
@@ -49,9 +50,23 @@
         <button id="pl-next" type="button" class="pl-btn" aria-label="Next station (N)"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="16.4" y="5" width="2.6" height="14" rx="1.1"/><path d="M5 6.2v11.6a1 1 0 0 0 1.55.83l7.85-5.43a1.45 1.45 0 0 0 0-2.4L6.55 5.37A1 1 0 0 0 5 6.2z"/></svg></button>
       </div>
       <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-      <button id="heart" type="button" class="pl-btn heart-btn" aria-label="Send hearts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.6c-.3 0-.6-.1-.8-.3C6.6 16.4 3 13.3 3 9.2 3 6.4 5.2 4.3 7.9 4.3c1.6 0 3.1.8 4.1 2.1 1-1.3 2.5-2.1 4.1-2.1 2.7 0 4.9 2.1 4.9 4.9 0 4.1-3.6 7.2-8.2 11.1-.2.2-.5.3-.8.3z"/></svg></button>
     </div>
+    <button id="heart" type="button" class="heart-fab" aria-label="Send hearts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.6c-.3 0-.6-.1-.8-.3C6.6 16.4 3 13.3 3 9.2 3 6.4 5.2 4.3 7.9 4.3c1.6 0 3.1.8 4.1 2.1 1-1.3 2.5-2.1 4.1-2.1 2.7 0 4.9 2.1 4.9 4.9 0 4.1-3.6 7.2-8.2 11.1-.2.2-.5.3-.8.3z"/></svg></button>
     <div id="hearts" class="hearts" aria-hidden="true"></div>
+
+    <section id="kagga-card" class="kagga-card" aria-label="Mankuthimmana Kagga" aria-live="polite" hidden>
+      <button id="kagga-close" class="panel-close" type="button" aria-label="Close">×</button>
+      <p id="kagga-num" class="kagga-num" lang="kn"></p>
+      <p id="kagga-text" class="kagga-text" lang="kn"></p>
+      <p class="kagga-credit" lang="kn">ಮಂಕುತಿಮ್ಮನ ಕಗ್ಗ · ಡಿ.ವಿ. ಗುಂಡಪ್ಪ</p>
+      <p id="kagga-en" class="kagga-en" lang="en" hidden></p>
+      <p id="kagga-en-credit" class="kagga-credit" hidden>English translation: mankuthimma.vercel.app</p>
+      <div class="kagga-actions">
+        <button id="kagga-next" class="pill" type="button">Another</button>
+        <button id="kagga-tr" class="pill" type="button" aria-pressed="false" aria-controls="kagga-en">Translation</button>
+        <a id="kagga-link" class="pill kagga-link" href="https://mankuthimma.vercel.app/" target="_blank" rel="noopener">Full kagga ↗</a>
+      </div>
+    </section>
 
     <aside id="bench-panel" class="bench-panel" aria-label="Benches" hidden>
       <header class="bench-head">
@@ -61,8 +76,9 @@
         </div>
         <button id="bench-close" class="panel-close" type="button" aria-label="Close benches">×</button>
       </header>
+      <div id="bench-pages" class="bench-pages" role="group" aria-label="Bench pages"></div>
       <label class="bench-filter"><input id="bench-free" type="checkbox" /> Free seats only</label>
-      <p class="bench-hint">You were seated at random. Pick any bench with a free seat to move. Each bench shares one radio station, and anyone sitting there can change it.</p>
+      <p class="bench-hint">You start on the first empty bench. Pick any bench with a free seat to move. Each bench shares one radio station, and anyone sitting there can change it.</p>
       <ol id="bench-list" class="bench-list"></ol>
     </aside>
 

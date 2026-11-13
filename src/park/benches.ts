@@ -194,13 +194,15 @@ export class BenchPark {
     return true;
   }
 
-  /** Prefer a bench that already has company and a free seat; otherwise a random empty one. */
-  sitAnywhere(): number | null {
-    const open = this.benches.filter((b) => b.count < SEATS && b.id !== this.me.bench);
-    if (!open.length) return null;
-    const company = open.filter((b) => b.count > 0);
-    const pool = company.length ? company : open;
-    const pick = pool[Math.floor(Math.random() * pool.length)];
+  /**
+   * Arrival seating: the lowest-numbered bench with nobody on it (held seats count as somebody),
+   * so people only share a bench when they choose to. If every bench has someone, the
+   * lowest-numbered bench with a free seat. Null when everything is full.
+   */
+  sitFirstEmpty(): number | null {
+    const pick =
+      this.benches.find((b) => b.count === 0) ?? this.benches.find((b) => b.count < SEATS);
+    if (!pick) return null;
     return this.sit(pick.id) ? pick.id : null;
   }
 

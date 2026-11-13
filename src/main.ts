@@ -6,6 +6,7 @@ import { BENCH_COUNT, BenchPark, SEATS } from './park/benches';
 import { Radio, type PlayResult } from './radio/player';
 import { LANGS, STATIONS, type Lang } from './radio/stations';
 import { addHearts, realtimeConfigured } from './realtime';
+import { knNumber, randomKagga } from './kagga/kagga';
 import { Renderer } from './scene/render';
 import type { ViewId } from './scene/types';
 
@@ -74,6 +75,8 @@ function renderPlayer() {
   // bars only bounce while sound is really coming out; connecting/buffering shows a soft pulse
   player.classList.toggle('live', radio.live);
   player.classList.toggle('loading', on && !radio.live);
+  // the browser blocks sound until a first tap: let the Play button glow until then
+  player.classList.toggle('blocked', radio.blocked && !on);
   plPlay.setAttribute('aria-pressed', String(on));
   plPlay.setAttribute('aria-label', on ? 'Pause radio (P)' : 'Play radio (P)');
   const single = radio.countLang(radio.lang) < 2;
@@ -192,8 +195,8 @@ park.onHeart = ({ seat, n }) => {
 renderPlayer();
 
 function reportRadio(r: PlayResult) {
-  if (r === 'blocked') toast('Tap the screen once to let the radio play');
-  else if (radio.unavailable) toast('No station is reachable right now');
+  // a blocked autoplay shows as a gently pulsing Play button (see renderPlayer), not a message
+  if (r !== 'blocked' && radio.unavailable) toast('No station is reachable right now');
 }
 
 interface RadioCmd {
@@ -332,6 +335,10 @@ const benchList = $('bench-list');
 const benchSummary = $('bench-summary');
 const benchFree = $<HTMLInputElement>('bench-free');
 const stationName = (id: string) => STATIONS.find((s) => s.id === id)?.name ?? id;
+const PAGE_SIZE = 10;
+const pageCount = Math.ceil(BENCH_COUNT / PAGE_SIZE);
+const benchPages = $('bench-pages');
+let benchPage = 0;
 
 function renderBenchButton() {
   const b = park.mine;
@@ -345,8 +352,24 @@ function renderBenchPanel() {
   benchSummary.textContent = park.shared
     ? `${n} ${n === 1 ? 'person' : 'people'} sitting · ${BENCH_COUNT} benches`
     : `${BENCH_COUNT} benches · just you for now`;
+  // page pills: 1, 2, … (10 benches each)
+  benchPages.replaceChildren(
+    ...Array.from({ length: pageCount }, (_, p) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pill page-pill';
+      b.textContent = String(p + 1);
+      b.setAttribute('aria-label', `Benches ${p * PAGE_SIZE + 1} to ${Math.min(BENCH_COUNT, (p + 1) * PAGE_SIZE)}`);
+      b.setAttribute('aria-pressed', String(p === benchPage));
+      b.addEventListener('click', () => {
+        benchPage = p;
+        renderBenchPanel();
+      });
+      return b;
+    }),
+  );
   const rows: HTMLElement[] = [];
-  for (const b of park.list()) {
+  for (const b of park.list().slice(benchPage * PAGE_SIZE, (benchPage + 1) * PAGE_SIZE)) {
     const mine = b.id === park.mine;
     const full = b.count >= SEATS;
     if (benchFree.checked && full && !mine) continue;
@@ -367,10 +390,7 @@ function renderBenchPanel() {
     btn.className = 'pill bench-act';
     if (mine) {
       btn.textContent = 'Leave';
-      btn.addEventListener('click', () => {
-        park.leave();
-        toast('You got up from the bench');
-      });
+      btn.addEventListener('click', () => park.leave());
     } else {
       btn.textContent = full ? 'Full' : 'Sit';
       btn.disabled = full;
@@ -387,38 +407,23 @@ function showBenchPanel(open: boolean) {
   benchPanel.hidden = !open;
   btnBench.setAttribute('aria-expanded', String(open));
   if (open) {
+    // open on the page that has my bench
+    if (park.mine !== null) benchPage = Math.floor(park.mine / PAGE_SIZE);
     renderBenchPanel();
-    benchList.querySelector<HTMLElement>('.mine')?.scrollIntoView({ block: 'center' });
   }
 }
 
 function sitOn(bench: number) {
-  if (!park.sit(bench)) {
-    toast('That bench just filled up — pick another');
-    return;
-  }
-  afterSitting('picked');
+  if (park.sit(bench)) afterSitting();
+  else renderBenchPanel(); // it filled up meanwhile: the list shows it as Full
 }
 
-/**
- * `picked`: they chose it from the list. `auto`: seated at random on arrival.
- * `back`: a reload put them back on the bench they had.
- */
-function afterSitting(how: 'picked' | 'auto' | 'back') {
+/** They picked a bench from the list (a tap, so the bench's music can start right away). Quietly. */
+function afterSitting() {
   const b = park.myBench;
   if (!b) return;
   showBenchPanel(false);
-  if (how === 'picked') {
-    toast('You moved to a new bench');
-    // choosing a bench is a tap, so the bench's music can start right away
-    if (!radio.on) void radio.select(b.station).then(reportRadio);
-    return;
-  }
-  const others = b.count - 1;
-  const company = others > 0 ? ` with ${others} other${others > 1 ? 's' : ''}` : '';
-  const lead = how === 'back' ? 'Back on your bench' : `You're sitting on a bench${company}`;
-  const tail = radio.blocked ? 'tap anywhere to start the music' : 'tap Bench to move';
-  toast(`${lead} · ${tail}`, 6000);
+  if (!radio.on) void radio.select(b.station).then(reportRadio);
 }
 
 park.onChange = () => {
@@ -427,10 +432,7 @@ park.onChange = () => {
   renderBenchPanel();
 };
 park.onStation = (id) => void radio.tune(id);
-park.onBumped = () => {
-  toast('That bench just filled up — pick another');
-  showBenchPanel(true);
-};
+park.onBumped = () => showBenchPanel(true); // lost a seat race on a full bench: let them pick
 park.onChange();
 
 btnBench.addEventListener('click', () => showBenchPanel(benchPanel.hidden));
@@ -445,6 +447,43 @@ $<HTMLCanvasElement>('scene').addEventListener('click', (e) => {
 });
 if (params.has('monkey')) renderer.bench.summonMonkey(clock());
 
+/* ---------- kagga: the full Kannada verse on demand, English translation one tap away ---------- */
+const btnKagga = $<HTMLButtonElement>('btn-kagga');
+const kaggaCard = $('kagga-card');
+async function showKagga() {
+  const k = await randomKagga();
+  $('kagga-num').textContent = `ಕಗ್ಗ ${knNumber(k.number)}`;
+  $('kagga-text').textContent = k.lines.join('\n');
+  // each new kagga starts with the Kannada alone; the English waits for the Translation button
+  $('kagga-en').textContent = k.english;
+  $<HTMLAnchorElement>('kagga-link').href = k.url; // this verse on the Mankuthimma app
+  showTranslation(false);
+  $<HTMLButtonElement>('kagga-tr').disabled = !k.english;
+  kaggaCard.hidden = false;
+  kaggaCard.classList.remove('fresh');
+  void kaggaCard.offsetWidth; // replay the fade for "Another"
+  kaggaCard.classList.add('fresh');
+  btnKagga.setAttribute('aria-expanded', 'true');
+}
+function hideKagga() {
+  kaggaCard.hidden = true;
+  btnKagga.setAttribute('aria-expanded', 'false');
+}
+btnKagga.addEventListener('click', () => (kaggaCard.hidden ? void showKagga() : hideKagga()));
+$('kagga-next').addEventListener('click', () => void showKagga());
+function showTranslation(on: boolean) {
+  $('kagga-en').hidden = !on;
+  $('kagga-en-credit').hidden = !on; // credit the translation only when it's shown
+  const b = $<HTMLButtonElement>('kagga-tr');
+  b.setAttribute('aria-pressed', String(on));
+  b.textContent = on ? 'Hide translation' : 'Translation';
+}
+$('kagga-tr').addEventListener('click', () => showTranslation($('kagga-en').hidden));
+$('kagga-close').addEventListener('click', hideKagga);
+addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideKagga();
+});
+
 /* ---------- shared benches (connected after first paint) ---------- */
 const idle = (cb: () => void) =>
   'requestIdleCallback' in window ? requestIdleCallback(cb, { timeout: 1500 }) : setTimeout(cb, 300);
@@ -453,11 +492,10 @@ idle(() =>
     .connect()
     .catch(() => {})
     .finally(() => {
-      // wait a moment so presence knows who's where, then seat everyone: back on their bench
-      // after a reload, otherwise at random (preferring benches with company)
+      // wait a moment so presence knows who's where, then seat everyone quietly: back on their
+      // own seat after a reload / locked phone, otherwise on the first empty bench
       setTimeout(() => {
-        if (park.restore()) afterSitting('back');
-        else if (park.sitAnywhere() !== null) afterSitting('auto');
+        if (!park.restore()) park.sitFirstEmpty();
       }, 1200);
     }),
 );
