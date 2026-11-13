@@ -53,9 +53,30 @@ function randomId(n = 10) {
 
 const STATION_IDS = new Set(STATIONS.map((s) => s.id));
 
-/** Every bench starts on Kannada Hits until someone sitting there picks another station. */
+/** The first benches start on Kannada Hits. */
 export const DEFAULT_STATION = 'kannadahits';
-export const defaultStation = (_bench: number) => DEFAULT_STATION;
+const KANNADA_HITS_BENCHES = 3;
+
+/**
+ * Starting station for each bench, until someone sitting there picks another: benches 1–3 play
+ * Kannada Hits; the rest go through every other station once, alternating languages
+ * (ಕ, हि, EN, ಕ, …) so each language is spread across the hill. With more stations than benches,
+ * the last few in that rotation start on no bench (people can still switch to them).
+ */
+const ROTATION: string[] = (() => {
+  const byLang = new Map<string, string[]>();
+  for (const s of STATIONS) {
+    if (s.id === DEFAULT_STATION) continue;
+    byLang.set(s.lang, [...(byLang.get(s.lang) ?? []), s.id]);
+  }
+  const lanes = [...byLang.values()];
+  const out: string[] = [];
+  for (let i = 0; out.length < STATIONS.length - 1; i++) for (const l of lanes) if (l[i]) out.push(l[i]);
+  return out;
+})();
+
+export const defaultStation = (bench: number) =>
+  bench < KANNADA_HITS_BENCHES ? DEFAULT_STATION : (ROTATION[(bench - KANNADA_HITS_BENCHES) % ROTATION.length] ?? DEFAULT_STATION);
 
 /**
  * BENCH_COUNT shared benches with 4 seats each. No login and no database: every tab publishes where

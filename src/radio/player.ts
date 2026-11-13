@@ -1,5 +1,9 @@
 import { clamp, storageGet, storageSet } from '../util';
+import type Hls from 'hls.js/light';
 import { LANGS, STATIONS, type Lang, type Station } from './stations';
+
+/** HLS (.m3u8) streams, e.g. All India Radio; everything else is a plain MP3/AAC stream. */
+const isHls = (url: string) => /\.m3u8(\?|$)/i.test(url);
 
 const STALL_MS = 10_000;
 /** after every station failed, wait this long and try the whole list again */
@@ -36,6 +40,10 @@ export class Radio {
   private _blocked = false;
   private _unavailable = false;
   private _live = false;
+  /** hls.js instance while an HLS station plays in a browser without native HLS (Chrome, Firefox) */
+  private hls: Hls | null = null;
+  /** bumps on every load, so a slow hls.js import can't attach an outdated station */
+  private loadSeq = 0;
   onChange: () => void = () => {};
 
   constructor() {
@@ -55,7 +63,11 @@ export class Radio {
       console.info(`${LOG} ▶ now playing: %c${this.station.name}%c  ${this.station.url}`, LOG_STYLE, 'font-weight:bold', '');
       this.onChange();
     });
-    this.el.addEventListener('error', () => this.fail('stream error'));
+    this.el.addEventListener('error', () => {
+      // ignore errors from tearing down a source (e.g. switching away from an HLS station)
+      if (!this.el.getAttribute('src') && !this.hls) return;
+      this.fail('stream error');
+    });
     // anything that interrupts the sound: no longer live until 'playing' fires again
     for (const ev of ['waiting', 'stalled', 'pause', 'emptied', 'error', 'ended'] as const) {
       this.el.addEventListener(ev, () => {
@@ -64,14 +76,26 @@ export class Radio {
         this.onChange();
       });
     }
+    // the clock moving is the surest sign of sound: some players (e.g. Chrome's built-in HLS)
+    // recover from 'waiting' without firing 'playing' again
+    let lastT = 0;
+    this.el.addEventListener('timeupdate', () => {
+      const t = this.el.currentTime;
+      if (t === lastT || this.el.paused) return;
+      lastT = t;
+      clearTimeout(this.stallTimer);
+      if (!this._live && this.wanted) {
+        this._live = true;
+        this.onChange();
+      }
+    });
     this.el.addEventListener('stalled', () => this.armStall());
     this.el.addEventListener('waiting', () => this.armStall());
     // a live stream "ending" means the server dropped us: reconnect
     this.el.addEventListener('ended', () => {
       if (!this.wanted) return;
       console.info(`${LOG} stream ended, reconnecting to ${this.station.name}`, LOG_STYLE);
-      this.load();
-      void this.start();
+      void this.load().then(() => this.start());
     });
   }
 
@@ -143,7 +167,7 @@ export class Radio {
     this.wanted = true;
     this._unavailable = false;
     if (!this.isAvailable(this.station)) this.skipToAvailable();
-    this.load();
+    await this.load();
     const r = await this.start();
     this.onChange();
     return r;
@@ -205,7 +229,7 @@ export class Radio {
     clearTimeout(this.retryTimer);
     this.wanted = true;
     this._unavailable = false;
-    this.load();
+    await this.load();
     const r = await this.start();
     this.onChange();
     return r;
@@ -225,7 +249,7 @@ export class Radio {
       this.failures = 0;
       this.session.delete(id);
       console.info(`${LOG} bench switched to ${this.station.name}`, LOG_STYLE);
-      this.load();
+      await this.load();
       const r = await this.start();
       this.onChange();
       return r;
@@ -309,8 +333,14 @@ export class Radio {
     clearTimeout(this.retryTimer);
     this.el.pause();
     // drop the connection: a paused live stream would otherwise keep buffering
+    this.detachHls();
     this.el.removeAttribute('src');
     this.el.load();
+  }
+
+  private detachHls() {
+    this.hls?.destroy();
+    this.hls = null;
   }
 
   private applyVolume() {
@@ -327,17 +357,38 @@ export class Radio {
     }
     // a person picked this station: give it a fresh chance even if it failed before
     this.session.delete(this.station.id);
-    this.load();
+    await this.load();
     const r = await this.start();
     this.onChange();
     return r;
   }
 
-  private load() {
+  private async load() {
     clearTimeout(this.stallTimer);
-    console.info(`${LOG} connecting to ${this.station.name}…`, LOG_STYLE);
-    this.el.src = this.station.url;
+    const seq = ++this.loadSeq;
+    const { url, name } = this.station;
+    console.info(`${LOG} connecting to ${name}…`, LOG_STYLE);
+    this.detachHls();
     this.armStall();
+    // plain streams, and HLS in browsers that play it natively (Safari, iOS): just set the source
+    if (!isHls(url) || this.el.canPlayType('application/vnd.apple.mpegurl')) {
+      this.el.src = url;
+      return;
+    }
+    // HLS elsewhere: hls.js, fetched only the first time an HLS station plays
+    const { default: HlsLib } = await import('hls.js/light'); // no subtitles/DRM: smaller
+    if (seq !== this.loadSeq) return; // switched station while loading
+    if (!HlsLib.isSupported()) {
+      this.fail('HLS not supported in this browser');
+      return;
+    }
+    const hls = new HlsLib({ lowLatencyMode: false, backBufferLength: 30 });
+    hls.on(HlsLib.Events.ERROR, (_e, data) => {
+      if (data.fatal && this.hls === hls) this.fail(`HLS ${data.details}`);
+    });
+    hls.loadSource(url);
+    hls.attachMedia(this.el);
+    this.hls = hls;
   }
 
   private async start(): Promise<PlayResult> {
@@ -376,6 +427,7 @@ export class Radio {
 
     if (this.failures >= this.stations.length) {
       this._unavailable = true;
+      this.detachHls();
       this.el.removeAttribute('src');
       this.el.load();
       console.warn(`${LOG} no station reachable — retrying in ${RETRY_ALL_MS / 1000}s`, LOG_STYLE);
@@ -393,7 +445,8 @@ export class Radio {
     this.skipToAvailable();
     storageSet('bc.radio.station', this.station.id);
     this.logStations();
-    this.load();
-    void this.start().then(() => this.onChange());
+    void this.load()
+      .then(() => this.start())
+      .then(() => this.onChange());
   }
 }
