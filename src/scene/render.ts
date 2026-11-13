@@ -18,6 +18,7 @@ export class Renderer {
   private leaves = new Leaves();
   private rain = new Rain();
   readonly bench = new BenchScene();
+  private farPoints: { x: number; y: number }[] = [];
   private W = 0;
   private H = 0;
   private dpr = 1;
@@ -226,7 +227,13 @@ export class Renderer {
     ctx.fill(layout.forest);
     ctx.fillStyle = c.forestLight;
     ctx.fill(layout.forestLight);
-    drawFarBenches(ctx, f, W, layout.forestTop, layout.s, layout.bench.x);
+    const far = drawFarBenches(ctx, f, W, layout.forestTop, layout.s, layout.bench.x);
+    // screen positions (this layer is shifted by 0.6× the parallax)
+    // only far benches clearly beside ours, so their hearts never look like they come from our bench
+    const clear = 130 * layout.bench.u;
+    this.farPoints = far
+      .filter((p) => Math.abs(p.x - layout.bench.x) > clear)
+      .map((p) => ({ x: p.x + f.px * 0.6, y: p.y + f.py * 0.6 }));
     ctx.restore();
 
     this.birds.draw(ctx, f, W);
@@ -272,6 +279,11 @@ export class Renderer {
       ctx.globalAlpha = 1;
       if (a <= 0) this.fadeFrom = null;
     }
+  }
+
+  /** A random far-hillside bench, in screen coordinates (where hearts from other benches rise). */
+  farBenchPoint(): { x: number; y: number } | null {
+    return this.farPoints.length ? this.farPoints[(Math.random() * this.farPoints.length) | 0] : null;
   }
 
   spawnBirds() {

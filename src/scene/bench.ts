@@ -558,7 +558,8 @@ export function drawFarBenches(
   top: number,
   s: number,
   avoidX: number,
-) {
+): { x: number; y: number }[] {
+  const points: { x: number; y: number }[] = [];
   const spots = [0.36, 0.63, 0.86];
   const glow = 0.08 + 0.85 * smoothstep(0.35, 0.9, f.night);
   for (let i = 0; i < spots.length; i++) {
@@ -566,6 +567,7 @@ export function drawFarBenches(
     if (Math.abs(x - avoidX) < 140 * s) continue;
     const y = top + (7 + i * 2) * s;
     const k = s * (0.55 - i * 0.04);
+    points.push({ x, y: y - 12 * k }); // just above the far bench
     const breathe = 0.85 + 0.15 * Math.sin(f.time * 0.6 + i * 2.1);
     // lamp glow
     if (glow > 0.02) {
@@ -588,5 +590,6 @@ export function drawFarBenches(
     ctx.arc(x + 22.2 * k, y - 30.5 * k, 2.2 * k, 0, Math.PI * 2);
     ctx.fill();
   }
+  return points;
 }
 

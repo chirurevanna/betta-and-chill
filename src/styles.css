@@ -319,6 +319,10 @@ button {
 }
 /* heart button + the hearts it sends floating up */
 .heart-fab {
+  touch-action: none; /* holding shouldn't scroll or zoom */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
   position: fixed;
   right: max(16px, env(safe-area-inset-right));
   bottom: max(16px, env(safe-area-inset-bottom));

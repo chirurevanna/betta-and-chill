@@ -105,19 +105,27 @@ const HEART_COLORS = ['#ff5a7a', '#ff8fab', '#f5b971', '#b8a9ff', '#ff6b6b'];
 let heartsThisVisit = 0;
 
 /** One heart floating up from (x, y) — by default from the heart button. */
-function floatHeart(delay: number, from?: { x: number; y: number }) {
+function floatHeart(delay: number, from?: { x: number; y: number }, scale = 1) {
   if (heartLayer.childElementCount > 60) return; // keep frantic tapping cheap
-  const size = 22 + Math.random() * 14;
+  const size = (22 + Math.random() * 14) * scale;
   let x: number;
   let y: number;
+  let rise: number;
+  let sway = (Math.random() - 0.5) * 90;
   if (from) {
     x = from.x;
     y = from.y;
+    rise = 220 + Math.random() * 180;
   } else {
+    // my own hearts: from the button all the way up to the top of the screen
     const r = heartBtn.getBoundingClientRect();
     x = r.left + r.width / 2;
     y = r.top;
+    rise = y - (24 + Math.random() * 110);
+    sway = (Math.random() - 0.7) * 100; // lean inwards so they don't slip off the right edge
   }
+  // longer climbs take longer, so the pace stays the same
+  const duration = Math.max(2.4, rise / 210) + Math.random() * 1.1;
   const h = document.createElement('span');
   h.className = 'float-heart';
   h.innerHTML = HEART_SVG;
@@ -127,14 +135,14 @@ function floatHeart(delay: number, from?: { x: number; y: number }) {
     `width:${size}px`,
     `height:${size}px`,
     `color:${HEART_COLORS[(Math.random() * HEART_COLORS.length) | 0]}`,
-    `--rise:${-(220 + Math.random() * 180)}px`,
-    `--sway:${(Math.random() - 0.5) * 90}px`,
+    `--rise:${-rise}px`,
+    `--sway:${sway}px`,
     `--tilt:${(Math.random() - 0.5) * 40}deg`,
-    `animation-duration:${2.4 + Math.random() * 1.2}s`,
+    `animation-duration:${duration.toFixed(2)}s`,
     `animation-delay:${delay}ms`,
   ].join(';');
   h.addEventListener('animationend', () => h.remove());
-  setTimeout(() => h.remove(), 4500 + delay); // fallback when animations are off (reduced motion)
+  setTimeout(() => h.remove(), duration * 1000 + 600 + delay); // fallback when animations are off
   heartLayer.append(h);
 }
 
@@ -157,7 +165,8 @@ function flushTotal() {
   if (totalPending > 0) totalTimer = window.setTimeout(flushTotal, 2000);
 }
 
-heartBtn.addEventListener('click', () => {
+/** One heart "press": counts, floats `burst` hearts, and is shared. `quiet` skips the console line. */
+function sendHeart(burst: number, quiet = false) {
   heartsThisVisit++;
   let device = heartsThisVisit;
   try {
@@ -166,11 +175,12 @@ heartBtn.addEventListener('click', () => {
   } catch {
     /* storage blocked: the visit count is still right */
   }
-  const all = everyone === null ? '' : ` · ${(everyone + totalPending + 1).toLocaleString()} from everyone`;
-  console.log(`♥ heart pressed: ${heartsThisVisit} this visit · ${device} on this device${all}`);
+  if (!quiet) {
+    const all = everyone === null ? '' : ` · ${(everyone + totalPending + 1).toLocaleString()} from everyone`;
+    console.log(`♥ heart pressed: ${heartsThisVisit} this visit · ${device} on this device${all}`);
+  }
 
-  const n = 2 + ((Math.random() * 2) | 0);
-  for (let i = 0; i < n; i++) floatHeart(i * 110);
+  for (let i = 0; i < burst; i++) floatHeart(i * 110);
   heartBtn.classList.remove('pop');
   void heartBtn.offsetWidth; // restart the little pop
   heartBtn.classList.add('pop');
@@ -185,12 +195,52 @@ heartBtn.addEventListener('click', () => {
   // and every tap counts towards the shared total
   totalPending++;
   if (realtimeConfigured) totalTimer ||= window.setTimeout(flushTotal, 2000);
+}
+
+// tap: a little burst. hold: a steady stream until the finger lifts (each heart counts once)
+let holdDelay = 0;
+let holdTimer = 0;
+let held = 0;
+function stopHold() {
+  clearTimeout(holdDelay);
+  clearInterval(holdTimer);
+  holdDelay = holdTimer = 0;
+  if (held) {
+    console.log(`♥ held the heart: +${held} (${heartsThisVisit} this visit)`);
+    held = 0;
+  }
+}
+heartBtn.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  stopHold(); // never two streams at once (second finger, repeated press)
+  heartBtn.setPointerCapture(e.pointerId);
+  sendHeart(2 + ((Math.random() * 2) | 0));
+  holdDelay = window.setTimeout(() => {
+    holdTimer = window.setInterval(() => {
+      held++;
+      sendHeart(1, true);
+    }, 140);
+  }, 350);
+});
+for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) heartBtn.addEventListener(ev, stopHold);
+heartBtn.addEventListener('contextmenu', (e) => e.preventDefault()); // long-press menu on phones
+// keyboard (Enter / Space) still sends a burst; pointer clicks are handled above
+heartBtn.addEventListener('click', (e) => {
+  if (e.detail === 0) sendHeart(2 + ((Math.random() * 2) | 0));
 });
 
 // a benchmate tapped their heart: hearts float up from their head on my screen
-park.onHeart = ({ seat, n }) => {
-  const at = renderer.bench.seatPoint(seat);
-  for (let i = 0; i < Math.min(n * 2, 8); i++) floatHeart(i * 120, at);
+park.onHeart = ({ seat, n }, sameBench) => {
+  if (sameBench) {
+    // a benchmate: hearts rise from their head
+    const at = renderer.bench.seatPoint(seat);
+    for (let i = 0; i < Math.min(n * 2, 8); i++) floatHeart(i * 120, at);
+    return;
+  }
+  // someone on another bench: a few small hearts drift up from a distant bench on the hillside
+  const at = renderer.farBenchPoint();
+  if (!at) return;
+  for (let i = 0; i < Math.min(n, 4); i++) floatHeart(i * 180, at, 0.55);
 };
 renderPlayer();
 

@@ -102,8 +102,8 @@ export class BenchPark {
   onStation: (id: string) => void = () => {};
   /** someone else got my seat at the same instant and the bench is full */
   onBumped: () => void = () => {};
-  /** a benchmate tapped the heart */
-  onHeart: (msg: HeartMsg) => void = () => {};
+  /** someone tapped the heart: a benchmate (sameBench) or anyone else on the hill */
+  onHeart: (msg: HeartMsg, sameBench: boolean) => void = () => {};
 
   constructor() {
     let seed = storageGet('bc.me');
@@ -144,9 +144,10 @@ export class BenchPark {
       onSync: () => this.recompute(),
       onLeave: (_key, metas) => this.hold(metas),
       onMessage: (event, payload) => {
-        if (event === 'heart' && isHeart(payload) && payload.bench === this.me.bench && payload.seat !== this.me.seat) {
-          this.onHeart(payload);
-        }
+        if (event !== 'heart' || !isHeart(payload) || payload.bench < 0 || payload.bench >= BENCH_COUNT) return;
+        const sameBench = payload.bench === this.me.bench;
+        if (sameBench && payload.seat === this.me.seat) return; // my own, already shown
+        this.onHeart(payload, sameBench);
       },
       onStatus: (s) => {
         this._shared = s === 'online';
@@ -189,7 +190,7 @@ export class BenchPark {
     return this.me.bench !== null; // false if the bench filled up meanwhile and we got bumped
   }
 
-  /** Send heart taps to everyone on my bench. */
+  /** Send heart taps to everyone (benchmates see them from my figure, others from afar). */
   sendHeart(n: number) {
     if (this.me.bench === null || n <= 0) return;
     const msg: HeartMsg = { bench: this.me.bench, seat: this.me.seat, n: Math.min(n, 20) };
