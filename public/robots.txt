@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://betta-and-chill.vercel.app/sitemap.xml
