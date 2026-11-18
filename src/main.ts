@@ -6,6 +6,7 @@ import { BENCH_COUNT, BenchPark, SEATS } from './park/benches';
 import { Radio, type PlayResult } from './radio/player';
 import { LANGS, STATIONS, type Lang } from './radio/stations';
 import { addHearts, realtimeConfigured } from './realtime';
+import { storageGet, storageSet } from './util';
 import { knNumber, randomKagga } from './kagga/kagga';
 import { Renderer } from './scene/render';
 import type { ViewId } from './scene/types';
@@ -26,6 +27,9 @@ const TIMES: Record<string, number> = { day: 0, golden: 0.42, sunset: 0.56, dusk
 const fx = new Effects(TIMES[params.get('time') ?? 'evening'] ?? TIMES.evening);
 const renderer = new Renderer($<HTMLCanvasElement>('scene'), initialView);
 const radio = new Radio();
+// read before BenchPark runs (it creates its own keys on first visit)
+const returningVisitor = storageGet('bc.visited') !== null;
+storageSet('bc.visited', '1');
 const park = new BenchPark();
 const clock = () => performance.now() / 1000;
 
@@ -549,3 +553,37 @@ idle(() =>
       }, 1200);
     }),
 );
+
+/* ---------- welcome, on every open ---------- */
+{
+  const el = $('welcome');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let gone = false;
+  const hide = () => {
+    if (gone) return;
+    gone = true;
+    el.classList.remove('show');
+    setTimeout(() => (el.hidden = true), reduced ? 0 : 1600);
+  };
+  setTimeout(() => {
+    el.hidden = false;
+    requestAnimationFrame(() => el.classList.add('show'));
+    setTimeout(hide, 7000); // ~1 s in, ~6 s to read
+  }, 800);
+  el.addEventListener('click', hide);
+}
+
+/* ---------- tell the owner someone opened the site or the app (see api/visit.ts) ---------- */
+{
+  const standalone =
+    matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  void fetch('/api/visit', {
+    method: 'POST',
+    keepalive: true,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode: standalone ? 'app' : 'website', returning: returningVisitor }),
+  }).catch(() => {
+    /* fire and forget: never let this affect the page */
+  });
+}
+

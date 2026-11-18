@@ -53,6 +53,16 @@ Seats, bench stations and bench hearts use Realtime presence and broadcast on th
 
 To test sharing, open the site in two browser profiles (or two devices) and sit on the same bench. The free tier allows about 200 people online at once, comfortably more than 20 full benches (80 people). The bench count is `BENCH_COUNT` in `src/park/benches.ts`.
 
+## Open alerts (push to your phone)
+
+Every time someone opens the site or the installed app, `api/visit.ts` sends a push to your phone through
+[ntfy](https://ntfy.sh), for example "New listener · App · Mysuru, India · iPhone". Bots, link previews and non-production
+deploys are skipped, and nothing is stored.
+
+1. Install the **ntfy** app (iOS / Android, free, no account).
+2. In the app, subscribe to a long, random topic name (it works like a password: anyone who knows it can read the alerts).
+3. In **Vercel → Settings → Environment Variables**, add `NTFY_TOPIC` = that topic name for **Production**, then redeploy.
+
 ## Deploy on Vercel
 
 1. Push this repo to GitHub and **Import** it in Vercel. It auto-detects Vite, and `vercel.json` sets the build command, the output folder and cache headers.
