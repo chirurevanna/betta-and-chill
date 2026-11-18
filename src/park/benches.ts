@@ -31,6 +31,18 @@ export interface HeartMsg {
   n: number;
 }
 
+/** Someone on a shared bench asked to switch its station; benchmates vote. */
+export interface StationRequest {
+  id: string;
+  bench: number;
+  seat: number;
+  station: string;
+  at: number;
+}
+
+/** How long a station-change vote stays open. */
+export const VOTE_MS = 45_000;
+
 /** How long a seat is kept for someone whose connection dropped. */
 export const HOLD_MS = 5 * 60_000;
 
@@ -104,6 +116,17 @@ export class BenchPark {
   onBumped: () => void = () => {};
   /** someone tapped the heart: a benchmate (sameBench) or anyone else on the hill */
   onHeart: (msg: HeartMsg, sameBench: boolean) => void = () => {};
+  /** a benchmate asks to change the station: show the vote */
+  onRequest: (req: StationRequest) => void = () => {};
+  /** the vote I was shown is over (someone answered Yes, it ran out, or the asker left) */
+  onRequestClosed: () => void = () => {};
+  /** my own request: approved (the station switches) or nobody approved it */
+  onRequestResult: (approved: boolean) => void = () => {};
+
+  /** my pending request: how many benchmates could vote, and how many said No */
+  private myRequest: { req: StationRequest; voters: number; no: number; timer: number } | null = null;
+  /** a benchmate's pending request shown to me */
+  private incoming: { req: StationRequest; timer: number } | null = null;
 
   constructor() {
     let seed = storageGet('bc.me');
@@ -144,6 +167,7 @@ export class BenchPark {
       onSync: () => this.recompute(),
       onLeave: (_key, metas) => this.hold(metas),
       onMessage: (event, payload) => {
+        if (event === 'req' || event === 'vote' || event === 'req-end') return this.onVoteMessage(event, payload);
         if (event !== 'heart' || !isHeart(payload) || payload.bench < 0 || payload.bench >= BENCH_COUNT) return;
         const sameBench = payload.bench === this.me.bench;
         if (sameBench && payload.seat === this.me.seat) return; // my own, already shown
@@ -202,6 +226,7 @@ export class BenchPark {
     const b = this.benches[bench];
     const free = b?.seats.findIndex((s) => s === null) ?? -1;
     if (free < 0) return false;
+    this.endVotes();
     this.me = {
       ...this.me,
       bench,
@@ -230,6 +255,7 @@ export class BenchPark {
 
   leave() {
     if (this.me.bench === null) return;
+    this.endVotes();
     console.info(`${LOG} left bench ${this.me.bench + 1}`, LOG_STYLE);
     this.me = { ...this.me, bench: null, seat: 0, sitAt: 0, station: '', stationAt: 0 };
     storageSet('bc.seat', ''); // chose to go: nothing to come back to
@@ -243,6 +269,84 @@ export class BenchPark {
     this.me = { ...this.me, station: id, stationAt: Date.now() };
     this.lastStation = id; // we already play it locally
     this.publish();
+  }
+
+  /** Other people on my bench who are here right now (held seats can't vote). */
+  othersLive(): number {
+    return this.myBench?.seats.filter((s) => s && !s.me && !s.held).length ?? 0;
+  }
+
+  /**
+   * Ask to change my bench's station. Alone on the bench (or offline): it just changes.
+   * With others: they get a vote, and the first Yes switches it for everyone.
+   */
+  requestStation(station: string): 'applied' | 'pending' | 'busy' {
+    if (this.me.bench === null) return 'applied';
+    if (!this.link || !this._shared || this.othersLive() === 0) {
+      this.setStation(station);
+      return 'applied';
+    }
+    if (this.myRequest || this.incoming) return 'busy';
+    const req: StationRequest = { id: randomId(8), bench: this.me.bench, seat: this.me.seat, station, at: Date.now() };
+    const timer = window.setTimeout(() => this.finishMine(false), VOTE_MS);
+    this.myRequest = { req, voters: this.othersLive(), no: 0, timer };
+    this.link.send('req', req);
+    console.info(`${LOG} asked the bench to switch to ${station}`, LOG_STYLE);
+    return 'pending';
+  }
+
+  /** My answer to a benchmate's request. */
+  vote(id: string, yes: boolean) {
+    if (!this.incoming || this.incoming.req.id !== id) return;
+    this.link?.send('vote', { id, bench: this.incoming.req.bench, yes });
+    this.clearIncoming();
+  }
+
+  private finishMine(approved: boolean) {
+    const mine = this.myRequest;
+    if (!mine) return;
+    clearTimeout(mine.timer);
+    this.myRequest = null;
+    this.link?.send('req-end', { id: mine.req.id, bench: mine.req.bench });
+    if (approved && this.me.bench === mine.req.bench) this.setStation(mine.req.station);
+    this.onRequestResult(approved);
+  }
+
+  private clearIncoming() {
+    if (!this.incoming) return;
+    clearTimeout(this.incoming.timer);
+    this.incoming = null;
+    this.onRequestClosed();
+  }
+
+  /** Moving or leaving: drop my request (benchmates' cards close) and any vote shown to me. */
+  private endVotes() {
+    if (this.myRequest) {
+      clearTimeout(this.myRequest.timer);
+      this.link?.send('req-end', { id: this.myRequest.req.id, bench: this.myRequest.req.bench });
+      this.myRequest = null;
+    }
+    this.clearIncoming();
+  }
+
+  private onVoteMessage(event: string, payload: unknown) {
+    if (!payload || typeof payload !== 'object') return;
+    const p = payload as Partial<StationRequest> & { yes?: unknown };
+    if (p.bench !== this.me.bench || typeof p.id !== 'string') return;
+    if (event === 'req') {
+      if (!isRequest(payload) || payload.seat === this.me.seat) return;
+      if (this.incoming) clearTimeout(this.incoming.timer);
+      // a lost "end" message must not leave the card up forever
+      const timer = window.setTimeout(() => this.clearIncoming(), VOTE_MS + 2000);
+      this.incoming = { req: payload, timer };
+      this.onRequest(payload);
+    } else if (event === 'vote') {
+      if (typeof p.yes !== 'boolean') return;
+      if (this.myRequest?.req.id === p.id) {
+        if (p.yes) this.finishMine(true);
+        else if (++this.myRequest.no >= this.myRequest.voters) this.finishMine(false);
+      } else if (this.incoming?.req.id === p.id && p.yes) this.clearIncoming(); // someone else said Yes first
+    } else if (this.incoming?.req.id === p.id) this.clearIncoming(); // req-end
   }
 
   private publish() {
@@ -351,6 +455,21 @@ function isSitter(v: unknown): v is Sitter {
     typeof s.sitAt === 'number' &&
     typeof s.station === 'string' &&
     typeof s.stationAt === 'number'
+  );
+}
+
+function isRequest(v: unknown): v is StationRequest {
+  if (!v || typeof v !== 'object') return false;
+  const r = v as Partial<StationRequest>;
+  return (
+    typeof r.id === 'string' &&
+    Number.isInteger(r.bench) &&
+    Number.isInteger(r.seat) &&
+    r.seat! >= 0 &&
+    r.seat! < SEATS &&
+    typeof r.station === 'string' &&
+    STATION_IDS.has(r.station) &&
+    typeof r.at === 'number'
   );
 }
 

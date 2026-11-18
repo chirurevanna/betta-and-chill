@@ -2,7 +2,7 @@ import './styles.css';
 import { inject } from '@vercel/analytics';
 import { Effects } from './effects/manager';
 import { isEffect, type EffectType } from './protocol';
-import { BENCH_COUNT, BenchPark, SEATS } from './park/benches';
+import { BENCH_COUNT, BenchPark, SEATS, VOTE_MS } from './park/benches';
 import { Radio, type PlayResult } from './radio/player';
 import { LANGS, STATIONS, type Lang } from './radio/stations';
 import { addHearts, realtimeConfigured } from './realtime';
@@ -274,8 +274,12 @@ async function radioCommand(cmd: RadioCmd) {
               : (radio.firstIdOf(cmd.lang) ?? undefined)
             : undefined;
   if (pick && park.mine !== null) {
-    // seated: the pick changes the station for everyone on this bench
-    park.setStation(pick);
+    // seated: alone, the pick just changes the bench's station; with others, it asks them first
+    const asked = park.requestStation(pick);
+    if (asked !== 'applied') {
+      toast(REQUEST_TEXT, 6000);
+      return;
+    }
     r = await radio.select(pick);
   } else if (cmd.action === 'toggle') r = await radio.toggle();
   else if (pick && (cmd.action === 'select' || cmd.action === 'lang')) r = await radio.select(pick);
@@ -363,6 +367,7 @@ let toastTimer = 0;
 function toast(text: string, ms = 3200) {
   const el = $('toast');
   el.textContent = text;
+  el.classList.toggle('long', text.length > 60);
   el.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => el.classList.remove('show'), ms);
@@ -486,6 +491,46 @@ park.onChange = () => {
   renderBenchPanel();
 };
 park.onStation = (id) => void radio.tune(id);
+
+/* ---------- station votes: a change on a shared bench needs one benchmate's Yes ---------- */
+const REQUEST_TEXT =
+  'Please consider sitting in an empty bench or wait for bench members to approve your channel change request';
+const DECLINED_TEXT = 'Nobody approved your channel change request, please sit in another bench to freely change channels';
+const voteCard = $('vote-card');
+const voteText = $('vote-text');
+let voteId = '';
+function hideVote() {
+  voteCard.hidden = true;
+  voteId = '';
+}
+park.onRequest = (req) => {
+  voteId = req.id;
+  voteText.textContent = '';
+  voteText.append('Someone on your bench wants to switch to ');
+  const name = document.createElement('strong');
+  name.textContent = stationName(req.station);
+  voteText.append(name);
+  // restart the countdown bar from full
+  const bar = voteCard.querySelector<HTMLElement>('.vote-bar i')!;
+  bar.style.animation = 'none';
+  void bar.offsetWidth;
+  bar.style.animation = '';
+  voteCard.style.setProperty('--vote-ms', `${Math.min(VOTE_MS, Math.max(0, VOTE_MS - (Date.now() - req.at)))}ms`);
+  voteCard.hidden = false;
+};
+park.onRequestClosed = hideVote;
+park.onRequestResult = (approved) => {
+  if (approved) void radio.tune(park.myBench?.station ?? '');
+  else toast(DECLINED_TEXT, 6000);
+};
+$('vote-yes').addEventListener('click', () => {
+  park.vote(voteId, true);
+  hideVote();
+});
+$('vote-no').addEventListener('click', () => {
+  park.vote(voteId, false);
+  hideVote();
+});
 park.onBumped = () => showBenchPanel(true); // lost a seat race on a full bench: let them pick
 park.onChange();
 

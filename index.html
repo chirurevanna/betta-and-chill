@@ -125,9 +125,18 @@
       </header>
       <div id="bench-pages" class="bench-pages" role="group" aria-label="Bench pages"></div>
       <label class="bench-filter"><input id="bench-free" type="checkbox" /> Free seats only</label>
-      <p class="bench-hint">You start on the first empty bench. Pick any bench with a free seat to move. Each bench shares one radio station, and anyone sitting there can change it.</p>
+      <p class="bench-hint">You start on the first empty bench. Pick any bench with a free seat to move. Each bench shares one radio station. Anyone sitting there can ask to change it, and one Yes from a benchmate switches it.</p>
       <ol id="bench-list" class="bench-list"></ol>
     </aside>
+
+    <section id="vote-card" class="vote-card" role="alertdialog" aria-labelledby="vote-text" hidden>
+      <p id="vote-text" class="vote-text"></p>
+      <div class="vote-actions">
+        <button id="vote-yes" class="pill" type="button">Yes</button>
+        <button id="vote-no" class="pill" type="button">No</button>
+      </div>
+      <span class="vote-bar" aria-hidden="true"><i></i></span>
+    </section>
 
     <p id="welcome" class="welcome" role="status" hidden>
       Welcome! In the era of countless music streaming options, you choose to listen to radio. You are truly special.

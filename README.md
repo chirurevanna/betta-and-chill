@@ -5,7 +5,7 @@ Sit on Chamundi Hills and watch Mysuru slow down.
 Betta & Chill is a calm, illustrated view of Mysuru from one of two spots on the hill: the **Nandi viewpoint** or **the summit** by the Chamundeshwari temple tower. Visitors can sit on one of **20 shared benches** (4 seats each) with other people, listen to Kannada, Hindi or English radio together, and send birds across the sky, play a sunset or sunrise, make a breeze shake the trees, or make it rain.
 
 - The whole scene is drawn in code on a Canvas 2D: no images, no 3D engine, no video. The first load is about 16 KB gzipped of JS.
-- Live Kannada radio streams (from [radio-browser.info](https://www.radio-browser.info)) play on every bench. Anyone on a bench can change its station, and it changes for everyone sitting there.
+- Live Kannada radio streams (from [radio-browser.info](https://www.radio-browser.info)) play on every bench. Alone on a bench, you change its station freely. With others there, a change is a request: the first benchmate to tap **Yes** within 45 seconds switches it for everyone. If nobody approves, the station stays.
 - Who sits where is shared through **Supabase Realtime** presence, on the free tier. There's no login, no database tables and no backend; a seat frees itself when its tab closes.
 - Without Supabase keys, everything still works in solo mode: you can sit on any bench, but you'll only see yourself.
 

@@ -776,6 +776,69 @@ button {
   }
 }
 
+/* long messages wrap to two lines: a rounded box instead of a pill */
+.toast.long {
+  border-radius: 18px;
+  width: min(420px, calc(100vw - 32px));
+}
+
+/* ---------- station vote (a benchmate asked to switch) ---------- */
+.vote-card {
+  position: fixed;
+  left: 50%;
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + 78px);
+  transform: translateX(-50%);
+  width: min(340px, calc(100vw - 32px));
+  padding: 14px 16px 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--glass-strong);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow:
+    0 16px 44px rgba(10, 8, 30, 0.35),
+    0 0 24px rgba(245, 185, 113, 0.12);
+  text-align: center;
+  z-index: 5;
+  animation: fade-in 0.5s ease;
+}
+.vote-text {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+.vote-text strong {
+  color: var(--gold);
+}
+.vote-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+.vote-actions .pill {
+  min-width: 72px;
+}
+.vote-bar {
+  display: block;
+  height: 3px;
+  margin-top: 12px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.vote-bar i {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+  transform-origin: left;
+  animation: vote-countdown var(--vote-ms, 45000ms) linear forwards;
+}
+@keyframes vote-countdown {
+  to {
+    transform: scaleX(0);
+  }
+}
+
 /* readable by screen readers and search engines, not drawn on screen */
 .sr-only {
   position: absolute;
