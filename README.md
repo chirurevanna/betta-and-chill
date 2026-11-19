@@ -30,7 +30,7 @@ npm run dev            # http://localhost:5173
 
 **URL params** (handy for demos):
 - `?view=museum` opens in the Museum (the default is the Nandi viewpoint; the view button switches between the two). The summit view is archived: it's no longer in the switcher, but `?view=summit` still opens it.
-- Museum paintings are public-domain works by Raja Ravi Varma, downscaled from Wikimedia Commons into `public/paintings/` and listed in `PAINTINGS` in `src/scene/museum.ts`.
+- The Museum opens on *Woman Holding a Fruit*; tapping the left or right half of the painting hangs the previous or next one (each listener browses on their own). The paintings are public-domain works by Raja Ravi Varma, downscaled from Wikimedia Commons into `public/paintings/` and listed in `PAINTINGS` in `src/scene/museum.ts`. `?painting=<id>` (e.g. `?view=museum&painting=damayanti`) shows a particular one.
 - `?time=day|golden|sunset|dusk|night` sets the starting light.
 - `?fx=rain,birds` starts those effects immediately.
 - `?monkey` sends a Chamundi monkey for the peanuts right away.

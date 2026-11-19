@@ -4,7 +4,7 @@ import { clamp, css, lerp, mix, smoothstep } from '../util';
 import { BenchScene, drawFarBenches } from './bench';
 import { buildLayout, type Layout } from './build';
 import { goldenOf, nightOf, paletteAt, type PaletteKey } from './palette';
-import { Museum, MUSEUM_DRIFT } from './museum';
+import { Museum, MUSEUM_DRIFT, setMuseumTopClear } from './museum';
 import { Sky } from './sky';
 import type { Frame, TreeDef, ViewId } from './types';
 
@@ -20,6 +20,8 @@ export class Renderer {
   private rain = new Rain();
   readonly bench = new BenchScene();
   private museum = new Museum();
+  /** the Museum room's current pointer drift (for hit-testing the painting) */
+  private drift = { x: 0, y: 0 };
   private farPoints: { x: number; y: number }[] = [];
   private W = 0;
   private H = 0;
@@ -61,8 +63,11 @@ export class Renderer {
   }
 
   resize() {
-    this.W = innerWidth;
-    this.H = innerHeight;
+    // the canvas's own size (in the iOS home-screen app it reaches past the viewport's bottom)
+    this.W = this.canvas.clientWidth || innerWidth;
+    this.H = this.canvas.clientHeight || innerHeight;
+    // the Museum keeps the painting clear of the buttons at the top
+    setMuseumTopClear(document.querySelector('.hud')?.getBoundingClientRect().bottom ?? 0);
     this.dpr = Math.min(devicePixelRatio || 1, this.W < 800 ? 1.5 : 2);
     this.canvas.width = Math.round(this.W * this.dpr);
     this.canvas.height = Math.round(this.H * this.dpr);
@@ -79,15 +84,33 @@ export class Renderer {
     if (this.view === 'museum') this.museum.load();
   }
 
-  /** Cross-fade to another viewpoint. */
-  setView(view: ViewId) {
-    if (view === this.view) return;
+  /** Freeze the current frame so the next one cross-fades from it. */
+  private snapshot() {
     const snap = document.createElement('canvas');
     snap.width = this.canvas.width;
     snap.height = this.canvas.height;
     snap.getContext('2d')!.drawImage(this.canvas, 0, 0);
     this.fadeFrom = snap;
     this.fadeT = 0;
+  }
+
+  /** In the Museum: which half of the painting a tap is on (-1 left, 1 right, 0 elsewhere). */
+  paintingSide(x: number, y: number) {
+    if (this.view !== 'museum') return 0;
+    return this.museum.side(x - this.drift.x, y - this.drift.y);
+  }
+
+  /** Cross-fade to the previous (-1) or next (+1) painting. */
+  stepPainting(dir: number) {
+    this.snapshot();
+    this.museum.step(dir);
+    this.layout = buildLayout(this.W, this.H, this.view);
+  }
+
+  /** Cross-fade to another viewpoint. */
+  setView(view: ViewId) {
+    if (view === this.view) return;
+    this.snapshot();
     this.view = view;
     this.layout = buildLayout(this.W, this.H, view);
     this.sky.resize(this.W, this.H, this.layout.horizonY, this.layout.s);
@@ -302,6 +325,7 @@ export class Renderer {
     const { W, layout } = this;
     const dx = f.px * MUSEUM_DRIFT;
     const dy = f.py * MUSEUM_DRIFT;
+    this.drift = { x: dx, y: dy };
     ctx.save();
     ctx.translate(dx, dy);
     this.museum.draw(ctx, f);

@@ -23,16 +23,34 @@ export interface Painting {
   h: number;
 }
 
+const RRV = 'Raja Ravi Varma';
+/** The Museum's paintings, in the order a tap on the painting's right half steps through them. */
 export const PAINTINGS: readonly Painting[] = [
-  {
-    id: 'woman-fruit',
-    title: 'Woman Holding a Fruit',
-    artist: 'Raja Ravi Varma',
-    src: '/paintings/ravi-varma-woman-holding-a-fruit.jpg',
-    w: 3816,
-    h: 4921,
-  },
+  { id: 'woman-fruit', title: 'Woman Holding a Fruit', artist: RRV, src: '/paintings/ravi-varma-woman-holding-a-fruit.jpg', w: 775, h: 1000 },
+  { id: 'swarbat', title: 'Lady Playing the Swarbat', artist: RRV, src: '/paintings/ravi-varma-lady-playing-the-swarbat.jpg', w: 879, h: 1100 },
+  { id: 'papa', title: 'There Comes Papa', artist: RRV, src: '/paintings/ravi-varma-there-comes-papa.jpg', w: 721, h: 1100 },
+  { id: 'damayanti', title: 'Damayanti and the Swan', artist: RRV, src: '/paintings/ravi-varma-damayanti-and-the-swan.jpg', w: 633, h: 1100 },
+  { id: 'moonlight', title: 'Ladies in the Moonlight', artist: RRV, src: '/paintings/ravi-varma-ladies-in-the-moonlight.jpg', w: 828, h: 1100 },
+  { id: 'malabar', title: 'Malabar Beauty', artist: RRV, src: '/paintings/ravi-varma-malabar-beauty.jpg', w: 789, h: 1100 },
+  { id: 'shakuntala', title: 'Shakuntala', artist: RRV, src: '/paintings/ravi-varma-shakuntala.jpg', w: 822, h: 1100 },
 ];
+
+/** The painting on the wall: Woman Holding a Fruit to start (?painting=<id> opens on another). */
+let current = Math.max(0, PAINTINGS.findIndex((p) => p.id === new URLSearchParams(location.search).get('painting')));
+export const currentPainting = (): Painting => PAINTINGS[current];
+
+/** Scale of people and props for a W×H screen (the same formula the layout uses). */
+export const sceneScale = (W: number, H: number) => Math.max(Math.min(W / 1200, H / 750), Math.min(W / 700, H / 900));
+/** Where the Museum's bench stands: just above the player bar. */
+export const museumBenchY = (W: number, H: number) => H - Math.max(H * 0.13, 110 * sceneScale(W, H), 100);
+/** Room the frame keeps free under itself for its two-line label. */
+export const LABEL_SPACE = 54;
+
+/** How far down the screen the top buttons reach (the painting and its light stay below them). */
+let topClear = 0;
+export function setMuseumTopClear(px: number) {
+  topClear = px;
+}
 
 /** room half-width and back-wall distance, in metres */
 const R = 5;
@@ -58,25 +76,50 @@ export interface MuseumGeometry {
   art: { x: number; y: number; w: number; h: number; ft: number };
 }
 
-export function museumGeometry(W: number, H: number, p: Painting = PAINTINGS[0]): MuseumGeometry {
+export function museumGeometry(W: number, H: number, p: Painting = currentPainting()): MuseumGeometry {
   const wide = W > H;
   const vy = H * 0.44;
   const yT = H * (wide ? 0.15 : 0.17);
-  const yF = H * (wide ? 0.69 : 0.66);
   const half = W * (wide ? 0.34 : 0.44);
+  const aspect = p.w / p.h;
+  if (!wide) return tallGeometry(W, H, vy, yT, half, aspect);
+  const yF = H * 0.69;
   const F = (half * DBACK) / R;
   const E = ((yF - vy) * DBACK) / F;
   const C = ((vy - yT) * DBACK) / F;
   const dNear = ((E * F) / (H - vy)) * 0.85;
   const skyBottom = vy - (C * F) / (DBACK - 1.4);
   const wall = yF - yT;
-  const aspect = p.w / p.h;
-  let ph = wall * (wide ? 0.6 : 0.56);
+  let ph = wall * 0.6;
   ph = Math.min(ph, (half * 2 * 0.64) / aspect);
   const pw = ph * aspect;
   const cy = yT + wall * 0.46;
   const ft = Math.max(7, ph * 0.075);
   return { vy, yT, yF, half, F, E, C, dNear, skyBottom, art: { x: W / 2 - pw / 2, y: cy - ph / 2, w: pw, h: ph, ft } };
+}
+
+/**
+ * Phones: the painting starts just below the top buttons (with room for its picture light), is
+ * about 70 % of the screen wide, and the floor line moves down to sit under its label.
+ */
+function tallGeometry(W: number, H: number, vy: number, yT: number, half: number, aspect: number): MuseumGeometry {
+  const LABEL = LABEL_SPACE;
+  const top = Math.max(yT + H * 0.04, topClear + 30); // top of the frame
+  // frame + label end above the floor line, and leave the listeners room above the player bar
+  const listener = 105 * Math.max(0.75, sceneScale(W, H) * 2);
+  const room = Math.min(H * 0.76, museumBenchY(W, H) - listener) - LABEL - top;
+  let ph = Math.min((W * 0.7) / aspect, room / 1.15);
+  ph = Math.min(ph, (half * 2 * 0.86) / aspect);
+  const pw = ph * aspect;
+  const ft = Math.max(7, ph * 0.075);
+  const y = top + ft;
+  const yF = Math.max(H * 0.66, y + ph + ft + LABEL);
+  const F = (half * DBACK) / R;
+  const E = ((yF - vy) * DBACK) / F;
+  const C = ((vy - yT) * DBACK) / F;
+  const dNear = ((E * F) / (H - vy)) * 0.85;
+  const skyBottom = vy - (C * F) / (DBACK - 1.4);
+  return { vy, yT, yF, half, F, E, C, dNear, skyBottom, art: { x: W / 2 - pw / 2, y, w: pw, h: ph, ft } };
 }
 
 const WALL = hex('#3c2e39');
@@ -93,27 +136,50 @@ const NIGHT_INK: RGB = [12, 9, 22];
 export class Museum {
   private room: HTMLCanvasElement | null = null;
   private artLayer: HTMLCanvasElement | null = null;
-  private img: HTMLImageElement | null = null;
-  private loaded = false;
+  private imgs = new Map<string, HTMLImageElement>();
   private W = 0;
   private H = 0;
   private dpr = 1;
   g!: MuseumGeometry;
   private skylight = new Path2D();
   private mullions = new Path2D();
-  readonly painting = PAINTINGS[0];
+  get painting() {
+    return currentPainting();
+  }
 
-  /** Start fetching the painting (called the first time the Museum is shown). */
+  /** Fetch the painting on the wall, and quietly its neighbours so a tap shows them at once. */
   load() {
-    if (this.img) return;
-    const img = new Image();
-    img.decoding = 'async';
-    img.onload = () => {
-      this.loaded = true;
-      this.artLayer = null; // redraw with the picture in it
-    };
-    img.src = this.painting.src;
-    this.img = img;
+    const n = PAINTINGS.length;
+    for (const k of [0, 1, -1]) this.image(PAINTINGS[(current + k + n) % n]);
+  }
+
+  private image(p: Painting) {
+    let img = this.imgs.get(p.id);
+    if (!img) {
+      img = new Image();
+      img.decoding = 'async';
+      img.onload = () => {
+        if (p === this.painting) this.artLayer = null; // redraw with the picture in it
+      };
+      img.src = p.src;
+      this.imgs.set(p.id, img);
+    }
+    return img;
+  }
+
+  /** Hang the previous (-1) or next (+1) painting; the room re-fits its size. */
+  step(dir: number) {
+    const n = PAINTINGS.length;
+    current = (current + dir + n) % n;
+    this.resize(this.W, this.H, this.dpr);
+    this.load();
+  }
+
+  /** Which half of the framed painting a screen point is on: -1 left, 1 right, 0 not on it. */
+  side(px: number, py: number) {
+    const { x, y, w, h, ft } = this.g.art;
+    if (px < x - ft || px > x + w + ft || py < y - ft || py > y + h + ft) return 0;
+    return px < x + w / 2 ? -1 : 1;
   }
 
   resize(W: number, H: number, dpr: number) {
@@ -377,9 +443,10 @@ export class Museum {
     }
 
     // the painting (a dark canvas until the image arrives)
-    if (this.loaded && this.img) {
+    const img = this.image(this.painting);
+    if (img.complete && img.naturalWidth > 0) {
       ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(this.img, x, y, w, h);
+      ctx.drawImage(img, x, y, w, h);
     } else {
       ctx.fillStyle = '#231a14';
       ctx.fillRect(x, y, w, h);

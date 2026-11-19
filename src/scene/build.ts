@@ -1,6 +1,6 @@
 import { css, mix, mulberry32, smoothstep, type RGB } from '../util';
 import { gopuram, lakeDrawable, lalithaMahal, mysorePalace, nandi, philomenaChurch } from './landmarks';
-import { museumGeometry } from './museum';
+import { LABEL_SPACE, museumBenchY, museumGeometry } from './museum';
 import type { Drawable, Frame, Lake, TreeDef, ViewId } from './types';
 
 export interface BenchSpot {
@@ -289,8 +289,8 @@ function museumLayout(W: number, H: number): Layout {
   const g = museumGeometry(W, H);
   // the listeners are close to us in the room, so they are drawn large, but never so large that
   // the "you" tag (about 105 units above the bench feet) reaches the painting or its label
-  const benchY = H - Math.max(H * 0.13, 110 * s);
-  const artBottom = g.art.y + g.art.h + g.art.ft + (W > H ? 12 : 56);
+  const benchY = W > H ? H - Math.max(H * 0.13, 110 * s) : museumBenchY(W, H);
+  const artBottom = g.art.y + g.art.h + g.art.ft + (W > H ? 12 : LABEL_SPACE);
   const u = Math.min(s * 2.3, (benchY - artBottom) / 105);
   const empty = new Path2D();
   return {

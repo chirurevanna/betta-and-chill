@@ -35,7 +35,8 @@ body {
 
 #scene {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
   width: 100vw;
   height: 100vh;
   height: 100dvh;
@@ -71,6 +72,10 @@ button {
 }
 .tray .pill {
   font-size: 0.9rem;
+}
+/* a line break between the place / sky / kagga buttons and the listening ones (phones only) */
+.hud-break {
+  display: none;
 }
 .tray .pill:disabled {
   opacity: 0.4;
@@ -246,6 +251,90 @@ button {
   opacity: 0.35;
   cursor: default;
 }
+/* now playing: a note, the station name, and a long sine wave that flows while music plays */
+.pl-now {
+  --wave: #c7adff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 210px;
+  min-width: 0;
+  padding: 2px 4px 2px 14px;
+  border-left: 1px solid var(--line);
+}
+.pl-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.pl-note {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: var(--wave);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pl-note circle {
+  fill: var(--wave);
+  stroke: none;
+}
+.pl-station {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: var(--ink-dim);
+}
+.player.on .pl-station {
+  color: var(--wave);
+}
+.wave {
+  display: block;
+  width: 100%;
+  height: 12px;
+  overflow: hidden;
+}
+.wave-amp {
+  transform-origin: 0 6px;
+  transform: scaleY(0.06); /* off: a flat, quiet line */
+  opacity: 0.45;
+  transition: transform 0.8s ease, opacity 0.8s ease;
+}
+.wave-line {
+  fill: none;
+  stroke: var(--wave);
+  stroke-width: 2;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.player.loading .wave-amp {
+  transform: scaleY(0.35);
+  opacity: 0.7;
+}
+.player.loading .wave-line {
+  animation: wave-flow 2.6s linear infinite;
+}
+.player.live .wave-amp {
+  transform: scaleY(1);
+  opacity: 1;
+}
+.player.live .wave-line {
+  animation: wave-flow 1.3s linear infinite;
+  filter: drop-shadow(0 0 3px rgba(199, 173, 255, 0.55));
+}
+@keyframes wave-flow {
+  to {
+    transform: translateX(-20px);
+  }
+}
 .transport {
   display: flex;
   align-items: center;
@@ -309,49 +398,6 @@ button {
   display: block;
 }
 /* level bars: bounce while live, a slow pulse while connecting, flat when off */
-.eq {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  width: 22px;
-  height: 18px;
-}
-.eq i {
-  flex: 1;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--gold);
-  opacity: 0.45;
-  transition: height 0.4s ease, opacity 0.4s ease;
-}
-.player.loading .eq i {
-  animation: eq-pulse 1.6s ease-in-out infinite;
-}
-.player.live .eq i {
-  opacity: 1;
-  animation: eq-bounce 0.9s ease-in-out infinite;
-}
-.player.live .eq i:nth-child(2) {
-  animation-duration: 0.7s;
-  animation-delay: -0.3s;
-}
-.player.live .eq i:nth-child(3) {
-  animation-duration: 1.1s;
-  animation-delay: -0.5s;
-}
-.player.live .eq i:nth-child(4) {
-  animation-duration: 0.8s;
-  animation-delay: -0.15s;
-}
-@keyframes eq-bounce {
-  0%,
-  100% {
-    height: 4px;
-  }
-  50% {
-    height: 18px;
-  }
-}
 /* sound is blocked until a first tap: the Play button breathes a warm glow */
 .player.blocked .pl-main {
   animation: play-glow 2.4s ease-in-out infinite;
@@ -361,11 +407,6 @@ button {
     box-shadow:
       0 0 0 6px rgba(245, 185, 113, 0.18),
       0 0 30px rgba(245, 185, 113, 0.55);
-  }
-}
-@keyframes eq-pulse {
-  50% {
-    opacity: 0.9;
   }
 }
 /* heart button + the hearts it sends floating up */
@@ -471,8 +512,38 @@ button {
   .player {
     left: max(12px, env(safe-area-inset-left));
     transform: none;
-    gap: 6px;
+    /* two rows: the station on top, the controls below */
+    display: grid;
+    grid-template-columns: auto auto;
+    align-items: center;
+    column-gap: 6px;
+    row-gap: 0;
     padding: 6px 8px 6px 6px;
+    border-radius: 28px;
+  }
+  /* phones: the note, name and wave share a row above the controls */
+  .pl-now {
+    grid-row: 1;
+    grid-column: 1 / -1;
+    /* never widens the bar: it takes the width the controls give it */
+    width: 0;
+    min-width: 100%;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 3px 10px 1px;
+    border-left: none;
+  }
+  .pl-title {
+    flex: 0 1 auto;
+    max-width: 62%;
+  }
+  .pl-station {
+    font-size: 0.8rem;
+  }
+  .wave {
+    flex: 1;
+    min-width: 36px;
   }
   .heart-fab {
     right: max(12px, env(safe-area-inset-right));
@@ -491,15 +562,13 @@ button {
 }
 /* very narrow phones: the title needs the whole top line, so the buttons drop just below it */
 @media (max-width: 560px) {
+  /* phones: the buttons sit beside the two-line title, right-aligned in two rows */
   .hud {
-    top: calc(var(--top) + 64px);
+    top: var(--top);
+    max-width: calc(100vw - 172px);
   }
   .toast {
-    top: calc(var(--top) + 112px);
-  }
-  /* keep the four buttons on one line under the title */
-  .hud {
-    max-width: calc(100vw - 28px);
+    top: calc(var(--top) + 80px);
   }
   .hud .pill {
     padding: 7px 11px;
@@ -854,6 +923,11 @@ button.bench-st:hover:not(:disabled) {
     font-size: 0.92rem;
   }
 }
+@media (max-width: 560px) {
+  .welcome {
+    top: calc(var(--top) + 80px); /* under the two button rows beside the title */
+  }
+}
 
 /* ---------- toast ---------- */
 .toast {
@@ -1004,6 +1078,14 @@ button.bench-st:hover:not(:disabled) {
   display: none !important;
 }
 
+/* home-screen app on iOS (black-translucent status bar): the page starts under the status bar
+   but the viewport stops that much short of the bottom; let the scene run to the screen's edge */
+@media (display-mode: standalone) {
+  #scene {
+    height: calc(100vh + env(safe-area-inset-top));
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition-duration: 0.01ms !important;
@@ -1019,7 +1101,7 @@ button.bench-st:hover:not(:disabled) {
 }
 @media (max-width: 560px) {
   .bench-panel {
-    --panel-top: calc(var(--top) + 104px);
+    --panel-top: calc(var(--top) + 80px);
   }
 }
 
@@ -1043,11 +1125,17 @@ button.bench-st:hover:not(:disabled) {
     height: 15px;
   }
 }
-/* very narrow phones: six controls on one line under the title */
+/* phones: two right-aligned rows beside the title */
 @media (max-width: 560px) {
   .hud-row {
-    gap: 5px;
-    flex-wrap: nowrap;
+    gap: 6px 5px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .hud-break {
+    display: block;
+    flex-basis: 100%;
+    height: 0;
   }
   .hud .pill {
     padding: 7px 9px;
@@ -1075,5 +1163,16 @@ button.bench-st:hover:not(:disabled) {
   }
   .hud-row {
     gap: 4px;
+  }
+}
+
+/* the smallest phones (320 px): the buttons need three rows beside the title, so cards open lower */
+@media (max-width: 345px) {
+  .welcome,
+  .toast {
+    top: calc(var(--top) + 112px);
+  }
+  .bench-panel {
+    --panel-top: calc(var(--top) + 112px);
   }
 }

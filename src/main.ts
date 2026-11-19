@@ -75,6 +75,7 @@ const plPrev = $<HTMLButtonElement>('pl-prev');
 const plNext = $<HTMLButtonElement>('pl-next');
 const langBtns = [...player.querySelectorAll<HTMLButtonElement>('.lang-btn')];
 
+const plStation = $('pl-station');
 function renderPlayer() {
   const on = radio.on;
   player.classList.toggle('on', on);
@@ -83,6 +84,8 @@ function renderPlayer() {
   player.classList.toggle('loading', on && !radio.live);
   // the browser blocks sound until a first tap: let the Play button glow until then
   player.classList.toggle('blocked', radio.blocked && !on);
+  plStation.textContent = radio.station.name;
+  plStation.title = radio.station.name;
   plPlay.setAttribute('aria-pressed', String(on));
   plPlay.setAttribute('aria-label', on ? 'Pause radio (P)' : 'Play radio (P)');
   const single = radio.countLang(radio.lang) < 2;
@@ -648,8 +651,15 @@ addEventListener('keydown', (e) => {
   if (e.key === 'Escape') showBenchPanel(false);
 });
 // tap the bench in the scene to pick a seat
-$<HTMLCanvasElement>('scene').addEventListener('click', (e) => {
-  if (renderer.bench.hit(e.clientX, e.clientY)) showBenchPanel(true);
+// in the Museum, a tap on the painting's left / right half hangs the previous / next one
+const sceneEl = $<HTMLCanvasElement>('scene');
+sceneEl.addEventListener('click', (e) => {
+  const side = renderer.paintingSide(e.clientX, e.clientY);
+  if (side) renderer.stepPainting(side);
+  else if (renderer.bench.hit(e.clientX, e.clientY)) showBenchPanel(true);
+});
+sceneEl.addEventListener('pointermove', (e) => {
+  sceneEl.style.cursor = renderer.paintingSide(e.clientX, e.clientY) ? 'pointer' : '';
 });
 if (params.has('monkey')) renderer.bench.summonMonkey(clock());
 
