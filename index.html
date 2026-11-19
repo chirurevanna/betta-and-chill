@@ -81,7 +81,11 @@
         <button id="btn-view" class="pill" type="button"></button>
         <button id="btn-play" class="pill" type="button" aria-expanded="false" aria-controls="tray" title="Birds, sunset, breeze, rain">Sky</button>
         <button id="btn-kagga" class="pill" type="button" aria-expanded="false" aria-controls="kagga-card" title="A kagga by D.V. Gundappa">Kagga</button>
-        <button id="btn-bench" class="pill" type="button" aria-pressed="false" aria-expanded="false" aria-controls="bench-panel">Bench</button>
+        <div class="mode-switch" role="group" aria-label="Where you listen">
+          <button id="btn-solo" class="mode-btn" type="button" aria-pressed="false" title="Listen alone and change stations freely">Solo</button>
+          <button id="btn-bench" class="mode-btn" type="button" aria-pressed="true" title="Sit on a shared bench">Bench</button>
+        </div>
+        <button id="btn-benches" class="pill icon-pill" type="button" aria-expanded="false" aria-controls="bench-panel" aria-label="All benches" title="All benches and free seats"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="2.4" rx="1.2"/><rect x="4" y="10.8" width="16" height="2.4" rx="1.2"/><rect x="4" y="16.6" width="16" height="2.4" rx="1.2"/></svg></button>
       </div>
     </div>
 
@@ -123,10 +127,9 @@
         </div>
         <button id="bench-close" class="panel-close" type="button" aria-label="Close benches">×</button>
       </header>
-      <div id="bench-pages" class="bench-pages" role="group" aria-label="Bench pages"></div>
-      <label class="bench-filter"><input id="bench-free" type="checkbox" /> Free seats only</label>
-      <p class="bench-hint">You start on the first empty bench. Pick any bench with a free seat to move. Each bench shares one radio station. Anyone sitting there can ask to change it, and one Yes from a benchmate switches it.</p>
+      <p class="bench-hint">You start on the first empty bench. Pick any bench with a free seat to move. Each bench shares one radio station. Anyone sitting there can ask to change it, and one Yes from a benchmate switches it. Or go Solo to listen alone and change stations freely.</p>
       <ol id="bench-list" class="bench-list"></ol>
+      <div id="bench-pages" class="bench-pages" role="group" aria-label="Bench pages"></div>
     </aside>
 
     <section id="vote-card" class="vote-card" role="alertdialog" aria-labelledby="vote-text" hidden>
@@ -141,7 +144,7 @@
     <p id="welcome" class="welcome" role="status" hidden>
       Welcome! In the era of countless music streaming options, you choose to listen to radio. You are truly special.
     </p>
-    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="toast" class="toast" role="status" aria-live="polite"><span id="toast-text"></span><button id="toast-close" class="toast-close" type="button" aria-label="Close" hidden>×</button></div>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -277,7 +277,7 @@ async function radioCommand(cmd: RadioCmd) {
     // seated: alone, the pick just changes the bench's station; with others, it asks them first
     const asked = park.requestStation(pick);
     if (asked !== 'applied') {
-      toast(REQUEST_TEXT, 6000);
+      toast(REQUEST_TEXT, 12_000, true);
       return;
     }
     r = await radio.select(pick);
@@ -364,9 +364,17 @@ btnView.addEventListener('click', () => {
 
 
 let toastTimer = 0;
-function toast(text: string, ms = 3200) {
+const toastClose = $<HTMLButtonElement>('toast-close');
+toastClose.addEventListener('click', () => {
+  clearTimeout(toastTimer);
+  $('toast').classList.remove('show', 'closable');
+});
+/** A short message at the top; `closable` ones get an × and can be tapped. */
+function toast(text: string, ms = 3200, closable = false) {
   const el = $('toast');
-  el.textContent = text;
+  $('toast-text').textContent = text;
+  toastClose.hidden = !closable;
+  el.classList.toggle('closable', closable);
   el.classList.toggle('long', text.length > 60);
   el.classList.add('show');
   clearTimeout(toastTimer);
@@ -389,26 +397,48 @@ for (const e of (params.get('fx') ?? '').split(',')) if (isEffect(e)) fire(e);
 
 /* ---------- benches ---------- */
 const btnBench = $<HTMLButtonElement>('btn-bench');
+const btnBenches = $<HTMLButtonElement>('btn-benches');
 const benchPanel = $('bench-panel');
 const benchList = $('bench-list');
 const benchSummary = $('bench-summary');
-const benchFree = $<HTMLInputElement>('bench-free');
 const stationName = (id: string) => STATIONS.find((s) => s.id === id)?.name ?? id;
 const PAGE_SIZE = 10;
 const pageCount = Math.ceil(BENCH_COUNT / PAGE_SIZE);
 const benchPages = $('bench-pages');
 let benchPage = 0;
 
+/** Solo | Bench toggle: exactly one is highlighted. */
 function renderBenchButton() {
-  const b = park.mine;
-  btnBench.textContent = 'Bench';
-  btnBench.setAttribute('aria-pressed', String(b !== null));
+  btnBench.setAttribute('aria-pressed', String(!solo));
+  btnSolo.setAttribute('aria-pressed', String(solo));
 }
+
+/* ---------- solo: off the benches, alone with an old cassette radio ---------- */
+const btnSolo = $<HTMLButtonElement>('btn-solo');
+let solo = storageGet('bc.solo') === '1';
+renderer.bench.solo = solo;
+function setSolo(on: boolean) {
+  solo = on;
+  storageSet('bc.solo', on ? '1' : '');
+  renderer.bench.solo = on;
+  if (on) {
+    park.leave();
+    showBenchPanel(false);
+    console.info('%c🎧 solo — listening alone, change stations freely', 'color:#7fb36a;font-weight:bold');
+  }
+  renderBenchButton();
+  renderBenchPanel();
+}
+btnSolo.addEventListener('click', () => {
+  if (!solo) setSolo(true);
+});
 
 function renderBenchPanel() {
   if (benchPanel.hidden) return;
   const n = park.sittingCount;
-  benchSummary.textContent = park.shared
+  benchSummary.textContent = solo
+    ? `You're listening solo · ${n} ${n === 1 ? 'person' : 'people'} on benches`
+    : park.shared
     ? `${n} ${n === 1 ? 'person' : 'people'} sitting · ${BENCH_COUNT} benches`
     : `${BENCH_COUNT} benches · just you for now`;
   // page pills: 1, 2, … (10 benches each)
@@ -431,7 +461,6 @@ function renderBenchPanel() {
   for (const b of park.list().slice(benchPage * PAGE_SIZE, (benchPage + 1) * PAGE_SIZE)) {
     const mine = b.id === park.mine;
     const full = b.count >= SEATS;
-    if (benchFree.checked && full && !mine) continue;
     const li = document.createElement('li');
     li.className = `bench-row${mine ? ' mine' : ''}${full ? ' full' : ''}`;
     const name = document.createElement('span');
@@ -464,7 +493,7 @@ function renderBenchPanel() {
 function showBenchPanel(open: boolean) {
   if (open === !benchPanel.hidden) return;
   benchPanel.hidden = !open;
-  btnBench.setAttribute('aria-expanded', String(open));
+  btnBenches.setAttribute('aria-expanded', String(open));
   if (open) {
     // open on the page that has my bench
     if (park.mine !== null) benchPage = Math.floor(park.mine / PAGE_SIZE);
@@ -473,6 +502,7 @@ function showBenchPanel(open: boolean) {
 }
 
 function sitOn(bench: number) {
+  if (solo && park.list()[bench]?.count < SEATS) setSolo(false);
   if (park.sit(bench)) afterSitting();
   else renderBenchPanel(); // it filled up meanwhile: the list shows it as Full
 }
@@ -494,7 +524,7 @@ park.onStation = (id) => void radio.tune(id);
 
 /* ---------- station votes: a change on a shared bench needs one benchmate's Yes ---------- */
 const REQUEST_TEXT =
-  'Please consider sitting in an empty bench or wait for bench members to approve your channel change request';
+  'Channel change request sent to people on the bench. Wait for their approval or try solo/empty bench to change channels as you like.';
 const DECLINED_TEXT = 'Nobody approved your channel change request, please sit in another bench to freely change channels';
 const voteCard = $('vote-card');
 const voteText = $('vote-text');
@@ -521,7 +551,7 @@ park.onRequest = (req) => {
 park.onRequestClosed = hideVote;
 park.onRequestResult = (approved) => {
   if (approved) void radio.tune(park.myBench?.station ?? '');
-  else toast(DECLINED_TEXT, 6000);
+  else toast(DECLINED_TEXT, 12_000, true);
 };
 $('vote-yes').addEventListener('click', () => {
   park.vote(voteId, true);
@@ -534,9 +564,15 @@ $('vote-no').addEventListener('click', () => {
 park.onBumped = () => showBenchPanel(true); // lost a seat race on a full bench: let them pick
 park.onChange();
 
-btnBench.addEventListener('click', () => showBenchPanel(benchPanel.hidden));
+// Bench: from solo, back onto the first empty bench; already on the benches, open or close the list
+btnBench.addEventListener('click', () => {
+  if (!solo) return showBenchPanel(benchPanel.hidden);
+  setSolo(false);
+  if (park.sitFirstEmpty() === null) showBenchPanel(true); // everything full: let them pick
+});
+// the list button: every bench and its free seats, from solo too (picking one leaves solo)
+btnBenches.addEventListener('click', () => showBenchPanel(benchPanel.hidden));
 $('bench-close').addEventListener('click', () => showBenchPanel(false));
-benchFree.addEventListener('change', renderBenchPanel);
 addEventListener('keydown', (e) => {
   if (e.key === 'Escape') showBenchPanel(false);
 });
@@ -594,7 +630,7 @@ idle(() =>
       // wait a moment so presence knows who's where, then seat everyone quietly: back on their
       // own seat after a reload / locked phone, otherwise on the first empty bench
       setTimeout(() => {
-        if (!park.restore()) park.sitFirstEmpty();
+        if (!solo && !park.restore()) park.sitFirstEmpty();
       }, 1200);
     }),
 );

@@ -115,6 +115,8 @@ export class BenchScene {
   private youAt = -1;
   /** is my radio playing (my own head only nods when it is) */
   listening = true;
+  /** solo mode: no bench, just me on a rock with an old cassette radio */
+  solo = false;
   private monkey: Monkey | null = null;
   private nextMonkey = 90 + Math.random() * 150;
   private coneSeat = -1;
@@ -150,6 +152,7 @@ export class BenchScene {
   /** Screen point just above the head of whoever sits in `seat` (for hearts from a benchmate). */
   seatPoint(seat: number) {
     const { x, y, u, px, py } = this.last;
+    if (this.solo) return { x: x - 14 * u + px, y: y - 82 * u + py };
     return { x: x + SEAT_X[seat] * u + px, y: y - 82 * u + py };
   }
 
@@ -170,6 +173,17 @@ export class BenchScene {
     // outlines: dark plum ink by day; after dusk they turn into a soft lavender rim light,
     // because a dark line on a dark scene separates nothing
     this.ink = css(mix(INK, RIM, smoothstep(0.45, 0.95, f.night)), 0.92);
+
+    if (this.solo) {
+      this.box = { x: spot.x - 62 * u + f.px, y: spot.y - 84 * u + f.py, w: 154 * u, h: 84 * u };
+      this.last = { x: spot.x, y: spot.y, u, px: f.px, py: f.py };
+      ctx.save();
+      ctx.translate(spot.x, spot.y);
+      ctx.scale(u, u);
+      this.drawSolo(ctx, f, lit, reduced);
+      ctx.restore();
+      return;
+    }
 
     this.updateMonkey(f, W, spot, reduced);
     this.box = { x: spot.x - 80 * u + f.px, y: spot.y - 92 * u + f.py, w: 160 * u, h: 92 * u };
@@ -407,6 +421,304 @@ export class BenchScene {
     inked(ctx, head, ink, 0.75);
     ctx.fillStyle = 'rgba(255,255,255,0.22)';
     for (const side of [-1, 1]) ctx.fillRect(side * (r + out - 1.2) - (side > 0 ? 1.5 : 0.1), -1, 1.4, 4.6);
+    ctx.restore();
+  }
+
+  /**
+   * Solo listener: sitting on a rock ledge in profile, knees drawn up and arms around them,
+   * long hair and a beard, facing an old silver cassette radio that plays out loud.
+   */
+  private drawSolo(ctx: CanvasRenderingContext2D, f: Frame, lit: (c: RGB, k?: number) => RGB, reduced: boolean) {
+    const ink = this.ink;
+    const playing = this.listening && !reduced;
+    const t = f.time;
+
+    // shadow and the rock ledge
+    ctx.fillStyle = `rgba(10,12,20,${0.22 - f.night * 0.1})`;
+    ctx.beginPath();
+    ctx.ellipse(13, 1, 79, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    const rock = new Path2D();
+    rock.moveTo(-58, 0);
+    rock.bezierCurveTo(-58, -6, -54, -11, -46, -11);
+    rock.lineTo(78, -11);
+    rock.bezierCurveTo(84, -11, 88, -5, 86, 0);
+    rock.closePath();
+    inked(ctx, [{ p: rock, fill: css(mix(f.pal.stoneLight, f.pal.rockLight, 0.55)) }], ink, 0.75);
+    ctx.strokeStyle = css(mix(f.pal.stone, f.pal.rockLight, 0.4), 0.6);
+    ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(-40, -6);
+    ctx.lineTo(-12, -6.5);
+    ctx.moveTo(30, -5);
+    ctx.lineTo(58, -5.5);
+    ctx.stroke();
+
+    // ---- the radio, on the ledge to his right ----
+    const silver = hex('#bdbab0');
+    const rx = 26;
+    const body = new Path2D();
+    body.roundRect(rx, -40, 40, 29, 2.5);
+    const handle = new Path2D();
+    handle.moveTo(rx + 5, -40);
+    handle.lineTo(rx + 6.5, -45.5);
+    handle.lineTo(rx + 33.5, -45.5);
+    handle.lineTo(rx + 35, -40);
+    const keys = new Path2D();
+    for (let i = 0; i < 4; i++) keys.rect(rx + 4 + i * 4.2, -42.2, 3, 2.2);
+    const speaker = circle(rx + 29, -25.5, 9.5);
+    const cassette = new Path2D();
+    cassette.roundRect(rx + 4, -33.5, 14, 10, 1);
+    inked(
+      ctx,
+      [
+        { p: handle, line: { color: css(lit(mix(silver, INK, 0.35))), w: 1.6 } },
+        { p: keys, fill: css(lit(mix(silver, INK, 0.2))) },
+        { p: body, fill: css(lit(silver, 0.6)) },
+        { p: cassette, fill: css(lit(hex('#4a4842'), 0.5)) },
+        { p: speaker, fill: css(lit(hex('#5c5a53'), 0.5)) },
+      ],
+      ink,
+      0.75,
+    );
+    // tuning dial: a thin window that glows amber after dusk
+    const glow = smoothstep(0.25, 0.8, f.night);
+    ctx.fillStyle = css(mix(lit(hex('#d9d4c4'), 0.6), hex('#ffb347'), glow));
+    ctx.fillRect(rx + 4, -38.3, 14, 2.6);
+    if (glow > 0.05) {
+      ctx.fillStyle = `rgba(255,179,71,${0.25 * glow})`;
+      ctx.beginPath();
+      ctx.ellipse(rx + 11, -37, 11, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = css(lit(hex('#c0392b'), 0.5));
+    ctx.fillRect(rx + 9 + Math.sin(t * 0.05) * 3, -38.6, 0.7, 3.2); // the needle
+    // cassette reels
+    ctx.fillStyle = css(lit(hex('#9a978c'), 0.5));
+    for (const cx of [rx + 8, rx + 14]) {
+      ctx.beginPath();
+      ctx.arc(cx, -28.5, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // speaker: a ring of dots and a cone that pulses with the music
+    const sx = rx + 29;
+    const sy = -25.5;
+    ctx.fillStyle = css(lit(hex('#d6d2c6'), 0.55), 0.85);
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.arc(sx + Math.cos(a) * 7.6, sy + Math.sin(a) * 7.6, 0.75, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    const beat = playing ? Math.pow(Math.max(0, Math.sin(t * Math.PI * 2 * 1.6)), 3) : 0;
+    ctx.fillStyle = css(lit(hex('#3d3b36'), 0.5));
+    ctx.beginPath();
+    ctx.arc(sx, sy, 5 + beat * 0.7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = css(lit(hex('#8f8b80'), 0.5));
+    ctx.beginPath();
+    ctx.arc(sx, sy, 1.8 + beat * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+    // knobs
+    ctx.fillStyle = css(lit(mix(silver, INK, 0.45)));
+    for (const kx of [rx + 7, rx + 13]) {
+      ctx.beginPath();
+      ctx.arc(kx, -16, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // music drifting out of it
+    if (playing) {
+      ctx.lineWidth = 0.9;
+      for (let i = 0; i < 3; i++) {
+        const k = (t * 0.45 + i / 3) % 1;
+        ctx.strokeStyle = css(mix(lit(hex('#fff4dc'), 0.3), hex('#f5b971'), f.night * 0.6), (1 - k) * 0.55);
+        ctx.beginPath();
+        ctx.arc(sx, sy, 12 + k * 16, -0.55, 0.55);
+        ctx.stroke();
+      }
+    }
+
+    // ---- his conch (shankha), lying on the ledge beside the radio: white, always easy to see ----
+    // barely touched by night, with a faint moonlit glow after dusk
+    const shellWhite = css(lit(hex('#fbf7ef'), 0.18));
+    ctx.save();
+    ctx.translate(2.5, 0); // a little clear of the radio's corner
+    const moon = smoothstep(0.2, 0.8, f.night);
+    if (moon > 0) {
+      const g = ctx.createRadialGradient(74, -15, 0, 74, -15, 12);
+      g.addColorStop(0, `rgba(255,250,240,${0.22 * moon})`);
+      g.addColorStop(1, 'rgba(255,250,240,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(62, -27, 24, 24);
+    }
+    const shell = new Path2D();
+    shell.moveTo(66, -13.4); // the canal tip
+    shell.quadraticCurveTo(68, -17.6, 73, -18.6);
+    shell.bezierCurveTo(77, -19.2, 80, -17.2, 79.6, -14.6);
+    shell.quadraticCurveTo(79.2, -11.6, 74, -11.3);
+    shell.quadraticCurveTo(69, -11.2, 66, -13.4);
+    shell.closePath();
+    const spire = new Path2D();
+    spire.moveTo(78.6, -17.4);
+    spire.lineTo(82.6, -15.6);
+    spire.lineTo(79.4, -13.2);
+    spire.closePath();
+    inked(
+      ctx,
+      [
+        { p: spire, fill: shellWhite },
+        { p: shell, fill: shellWhite },
+      ],
+      ink,
+      0.6,
+    );
+    // the pink-cream opening and the spiral ridges
+    ctx.fillStyle = css(lit(hex('#f4d6c6'), 0.2));
+    ctx.beginPath();
+    ctx.ellipse(70.6, -13.1, 3.6, 1.3, -0.12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = css(lit(hex('#c9bfae'), 0.25));
+    ctx.lineWidth = 0.55;
+    ctx.beginPath();
+    for (const x of [75.2, 77.4]) {
+      ctx.moveTo(x, -18.4);
+      ctx.quadraticCurveTo(x + 1.3, -15, x - 0.2, -11.8);
+    }
+    ctx.moveTo(80.3, -16.6);
+    ctx.lineTo(80.6, -14);
+    ctx.stroke();
+    ctx.restore();
+
+    // ---- him: profile facing the radio and the city, hugging his knees ----
+    const tee = css(lit(hex('#4f6b6a')));
+    const teeShade = css(lit(hex('#3e5655')));
+    const pants = css(lit(hex('#2b2e3a')));
+    const skin = css(lit(hex('#a0673a')));
+    const hair = css(lit(hex('#1b1410')));
+
+    const torso = new Path2D();
+    torso.moveTo(-36, -11);
+    torso.bezierCurveTo(-40, -26, -36, -45, -27, -53);
+    torso.quadraticCurveTo(-20, -58, -13, -55);
+    torso.quadraticCurveTo(-6, -50, -7, -40);
+    torso.lineTo(-11, -16);
+    torso.closePath();
+    const legs = new Path2D();
+    legs.moveTo(-34, -11);
+    legs.lineTo(-31, -24);
+    legs.quadraticCurveTo(-13, -33, -1, -45);
+    legs.quadraticCurveTo(7, -49, 10, -41);
+    legs.lineTo(13, -15);
+    legs.lineTo(2, -14);
+    legs.lineTo(-1, -31);
+    legs.quadraticCurveTo(-9, -21, -17, -14);
+    legs.lineTo(-34, -11);
+    legs.closePath();
+    const shoe = new Path2D();
+    shoe.moveTo(1, -15.5);
+    shoe.lineTo(14, -16);
+    shoe.quadraticCurveTo(21, -15, 21.5, -11);
+    shoe.lineTo(1, -11);
+    shoe.closePath();
+    // the near arm wraps around the shins, hands clasped in front of them
+    const arm = new Path2D();
+    arm.moveTo(-24, -47);
+    arm.quadraticCurveTo(-17, -28, -5, -27.5);
+    arm.lineTo(10, -31);
+    const hand = circle(12.5, -31.5, 3.8);
+    inked(
+      ctx,
+      [
+        { p: torso, fill: tee },
+        { p: legs, fill: pants },
+        { p: shoe, fill: css(lit(hex('#1e1f26'))) },
+        { p: arm, line: { color: tee, w: 8.5 } },
+        { p: hand, fill: skin },
+      ],
+      ink,
+      0.75,
+    );
+    // sleeve fold and the cuff
+    ctx.strokeStyle = teeShade;
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(-19, -36);
+    ctx.quadraticCurveTo(-15, -31, -10, -30);
+    ctx.moveTo(5.5, -34);
+    ctx.lineTo(7.2, -27.6);
+    ctx.stroke();
+
+    // head: turns gently with the music, pivoting at the neck
+    const sway = playing ? Math.sin(t * Math.PI * 2 * 0.42) * 0.05 + Math.pow(Math.max(0, Math.sin(t * Math.PI * 2 * 0.42)), 1.6) * 0.04 : 0;
+    ctx.save();
+    ctx.translate(-16, -56);
+    ctx.rotate(sway);
+    ctx.translate(2, -10);
+    const r = 8.5;
+    const face = circle(0, 0, r);
+    const nose = new Path2D();
+    nose.moveTo(r - 0.8, -2);
+    nose.lineTo(r + 2.4, 1.6);
+    nose.lineTo(r - 0.4, 2.6);
+    nose.closePath();
+    // beard along the jaw and chin, open at the mouth; a separate moustache above it
+    const beard = new Path2D();
+    beard.moveTo(-2, 2.5);
+    beard.quadraticCurveTo(-0.5, 10, 5, 10.6);
+    beard.quadraticCurveTo(8.4, 10, 8.9, 7);
+    beard.lineTo(8.6, 6.4);
+    beard.quadraticCurveTo(6.6, 7, 4.6, 6.2);
+    beard.quadraticCurveTo(2.6, 5.2, 1.4, 3.2);
+    beard.closePath();
+    const stache = new Path2D();
+    stache.moveTo(4.4, 4.2);
+    stache.quadraticCurveTo(7, 3, 9.7, 3.7);
+    stache.quadraticCurveTo(9.6, 4.9, 8.6, 4.9);
+    stache.quadraticCurveTo(6.6, 4.8, 4.4, 5.6);
+    stache.closePath();
+    // long hair: over the crown and down the back, with the hairline high on the forehead
+    const locks = new Path2D();
+    locks.moveTo(4.5, -8.2);
+    locks.quadraticCurveTo(-2, -12.5, -8, -6.5);
+    locks.quadraticCurveTo(-12.5, 3, -10, 16);
+    locks.lineTo(-3.5, 15);
+    locks.quadraticCurveTo(-4.5, 7, -2, 1.5);
+    locks.quadraticCurveTo(-0.5, -3.5, 2, -6);
+    locks.quadraticCurveTo(3.5, -7.4, 4.5, -8.2);
+    locks.closePath();
+    inked(
+      ctx,
+      [
+        { p: face, fill: skin },
+        { p: nose, fill: skin },
+        { p: beard, fill: hair },
+        { p: stache, fill: hair },
+        { p: locks, fill: hair },
+      ],
+      ink,
+      0.75,
+    );
+    // mouth: a short lip line in the gap between moustache and beard
+    ctx.strokeStyle = css(lit(hex('#5a2a22')), 0.9);
+    ctx.lineWidth = 0.8;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(6.2, 5.7);
+    ctx.quadraticCurveTo(7.6, 6, 8.7, 5.6);
+    ctx.stroke();
+    // eye, with a blink every few seconds, and a brow
+    const blink = playing && t % 4.2 < 0.12;
+    ctx.fillStyle = css(lit(hex('#120d0a')));
+    ctx.beginPath();
+    if (blink) ctx.rect(3.6, -1.7, 2, 0.5);
+    else ctx.arc(4.6, -1.5, 0.85, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = css(lit(hex('#120d0a')), 0.85);
+    ctx.lineWidth = 0.75;
+    ctx.beginPath();
+    ctx.moveTo(3, -3.4);
+    ctx.quadraticCurveTo(4.8, -4.1, 6.6, -3.6); // brow
+    ctx.stroke();
     ctx.restore();
   }
 

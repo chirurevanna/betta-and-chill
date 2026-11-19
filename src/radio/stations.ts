@@ -9,7 +9,8 @@
  * re-checks the tag at runtime and skips a station whose tag stops matching.
  *
  * To add a station: look it up on radio-browser.info, check its stream plays over HTTPS, and
- * append { id, name, lang, url, uuid } below. A language button lights up as soon as it has a
+ * append { id, name, lang, url, uuid } below (a station missing from the directory can leave out
+ * `uuid`: it then skips the health check, and a broken stream is still skipped when it fails to play). A language button lights up as soon as it has a
  * station. `uuid` is the Radio Browser stationuuid. Streams © their respective stations.
  */
 export type Lang = 'kn' | 'hi' | 'en';
@@ -34,16 +35,20 @@ export interface Station {
   name: string;
   lang: Lang;
   url: string;
-  uuid: string;
+  /** Radio Browser stationuuid; leave out for a station that isn't in the directory */
+  uuid?: string;
 }
 
 export const STATIONS: readonly Station[] = [
   // Kannada
   { id: 'kannadahits', name: 'Kannada Hits', lang: 'kn', url: 'https://stream.zeno.fm/68snnbug8rhvv', uuid: '7bfa32e7-a239-4f59-904a-fcf602b06404' },
   { id: 'sakkath', name: 'Sakkath Radio', lang: 'kn', url: 'https://stream.zeno.fm/fcsk9ryerd0uv', uuid: '443a1153-10a3-4312-bb74-50c703e8129b' },
-  { id: 'girmit', name: 'Radio Girmit', lang: 'kn', url: 'https://stream.radiojar.com/g6dgm6m6p3hvv', uuid: '6533a16a-c01b-4100-adb9-7f2737398fc5' },
+  // VV Radio, Bengaluru (80s/90s): not in Radio Browser, so no uuid and no directory health check
+  { id: 'vvradio', name: 'VV Radio', lang: 'kn', url: 'https://player.vvradio.co.in/proxy/vvradio/stream' },
   { id: 'namm', name: 'Namm Radio', lang: 'kn', url: 'https://stream.zenolive.com/bbs8prb015quv', uuid: 'cdacacb3-d3ee-4a2b-b57d-d1190472a542' },
   { id: 'amr', name: 'Radio AMR Kannada', lang: 'kn', url: 'https://stream.zeno.fm/7g8axtgtsg0uv', uuid: 'fe9ddd4b-db4d-41ab-940c-dc834089e106' },
+  // Madhur Tarang: not in Radio Browser either
+  { id: 'madhurtarang', name: 'Madhur Tarang', lang: 'kn', url: 'https://artemis.streamerr.co/listen/madhur_tarang/radio.mp3' },
   // All India Radio (Akashvani), HLS streams: played with hls.js (or natively in Safari)
   { id: 'rainbowkannada', name: 'FM Rainbow Kannada', lang: 'kn', url: 'https://airhlspush.pc.cdn.bitgravity.com/httppush/hlspbaudio027/hlspbaudio027_Auto.m3u8', uuid: 'daa8eddc-21fd-4481-b14d-7c87d8bf998d' },
   { id: 'amruthavarshini', name: 'Amruthavarshini', lang: 'kn', url: 'https://airhlspush.pc.cdn.bitgravity.com/httppush/hlspbaudio028/hlspbaudio028_Auto.m3u8', uuid: '15d80925-5fc6-4279-bccc-243a2a0e1db0' },

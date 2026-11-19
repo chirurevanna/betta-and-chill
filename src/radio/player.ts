@@ -126,7 +126,7 @@ export class Radio {
   /** Ask Radio Browser which stations currently pass its health check, then log the list. */
   async checkDirectory() {
     try {
-      const uuids = this.stations.map((s) => s.uuid).join(',');
+      const uuids = this.stations.flatMap((s) => (s.uuid ? [s.uuid] : [])).join(',');
       const res = await fetch(`${DIRECTORY}?uuids=${uuids}`, {
         cache: 'no-store',
         signal: AbortSignal.timeout(4000), // never hold up the music for the health check

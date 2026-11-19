@@ -50,19 +50,22 @@ button {
 }
 
 /* ---------- HUD ---------- */
+/* the buttons live in the sky at the top right on every screen; the Sky effects open underneath */
 .hud {
   position: fixed;
-  left: max(16px, env(safe-area-inset-left));
-  bottom: max(16px, env(safe-area-inset-bottom));
+  right: max(16px, env(safe-area-inset-right));
+  top: var(--top);
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  flex-direction: column-reverse;
+  align-items: flex-end;
   gap: 8px;
   max-width: calc(100vw - 32px);
+  z-index: 3;
 }
 .hud-row,
 .tray {
   display: flex;
+  justify-content: flex-end;
   gap: 8px;
   flex-wrap: wrap;
 }
@@ -89,6 +92,54 @@ button {
     border-color var(--slow),
     box-shadow var(--slow),
     transform var(--slow);
+}
+/* Solo | Bench: one glass pill with two halves; the chosen one is lit like the language switch */
+.mode-switch {
+  display: flex;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow: 0 6px 24px rgba(10, 8, 30, 0.18);
+}
+.mode-btn {
+  padding: 5px 13px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  transition:
+    background var(--slow),
+    color var(--slow),
+    box-shadow var(--slow);
+}
+.mode-btn:hover,
+.mode-btn:focus-visible {
+  color: var(--ink);
+  box-shadow: 0 0 14px var(--gold-glow);
+}
+.mode-btn[aria-pressed='true'] {
+  background: rgba(251, 247, 255, 0.92);
+  color: #1d1a3d;
+}
+/* a round icon-only pill (the bench list) */
+.icon-pill,
+.hud .icon-pill {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  width: 40px;
+  height: 40px;
+}
+.icon-pill svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
 }
 /* hover: a gentle bloom of warm light */
 .pill:hover:not(:disabled),
@@ -403,21 +454,14 @@ button {
   }
 }
 
-/* narrow screens: the player keeps the bottom to itself (below the bench); the other buttons
-   move up into the empty sky at the top right, with the Sky effects opening underneath */
+/* narrow screens: smaller buttons, and the player keeps the bottom to itself */
 @media (max-width: 760px) {
   .hud {
-    left: auto;
     right: max(14px, env(safe-area-inset-right));
-    bottom: auto;
-    top: var(--top);
-    flex-direction: column-reverse;
-    align-items: flex-end;
-    max-width: 60vw;
+    max-width: calc(100vw - 186px); /* everything right of the title */
   }
   .hud-row,
   .tray {
-    justify-content: flex-end;
     gap: 6px;
   }
   .hud .pill {
@@ -446,7 +490,7 @@ button {
   }
 }
 /* very narrow phones: the title needs the whole top line, so the buttons drop just below it */
-@media (max-width: 400px) {
+@media (max-width: 560px) {
   .hud {
     top: calc(var(--top) + 64px);
   }
@@ -598,7 +642,8 @@ button {
 /* ---------- benches ---------- */
 .bench-panel {
   position: fixed;
-  top: calc(var(--top) - 2px);
+  /* opens just under the button row */
+  top: calc(var(--top) + 52px);
   right: max(16px, env(safe-area-inset-right));
   bottom: max(16px, env(safe-area-inset-bottom));
   width: min(360px, calc(100vw - 32px));
@@ -637,19 +682,15 @@ button {
 }
 .bench-pages {
   display: flex;
+  justify-content: center;
   gap: 6px;
+  padding-top: 4px;
 }
 .page-pill {
   min-width: 38px;
   padding: 5px 12px;
   font-size: 0.85rem;
   font-weight: 650;
-}
-.bench-filter {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.88rem;
 }
 .bench-list {
   flex: 1;
@@ -708,7 +749,7 @@ button {
 /* ---------- welcome (every open) ---------- */
 .welcome {
   position: fixed;
-  top: calc(var(--top) + 6px);
+  top: calc(var(--top) + 60px); /* below the button row at the top right */
   left: 50%;
   width: min(520px, calc(100vw - 32px));
   margin: 0;
@@ -776,10 +817,47 @@ button {
   }
 }
 
+/* messages you can close: the × is tappable, the rest of the toast still isn't in the way */
+.toast.closable {
+  padding-right: 40px;
+}
+.toast.closable.show {
+  pointer-events: auto;
+}
+.toast-close {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: inherit;
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.toast-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 /* long messages wrap to two lines: a rounded box instead of a pill */
 .toast.long {
   border-radius: 18px;
   width: min(420px, calc(100vw - 32px));
+}
+/* phones: long messages go below the button row, so Solo / Bench stay tappable */
+@media (max-width: 640px) {
+  .toast.long {
+    top: calc(var(--top) + 112px);
+  }
+}
+@media (max-width: 560px) {
+  .toast.long {
+    top: calc(var(--top) + 116px);
+  }
 }
 
 /* ---------- station vote (a benchmate asked to switch) ---------- */
@@ -860,5 +938,72 @@ button {
   * {
     transition-duration: 0.01ms !important;
     animation: none !important;
+  }
+}
+
+/* the bench panel opens under the button row (after its base rule, so these win) */
+@media (max-width: 760px) {
+  .bench-panel {
+    top: calc(var(--top) + 44px);
+  }
+}
+@media (max-width: 560px) {
+  .bench-panel {
+    top: calc(var(--top) + 104px);
+  }
+}
+
+/* phones: the Solo | Bench halves match the smaller buttons */
+@media (max-width: 760px) {
+  .mode-btn {
+    padding: 3px 10px;
+    font-size: 0.8rem;
+  }
+  .mode-switch {
+    padding: 2px;
+  }
+}
+@media (max-width: 760px) {
+  .icon-pill {
+    width: 31px;
+    height: 31px;
+  }
+  .icon-pill svg {
+    width: 15px;
+    height: 15px;
+  }
+}
+/* very narrow phones: six controls on one line under the title */
+@media (max-width: 560px) {
+  .hud-row {
+    gap: 5px;
+    flex-wrap: nowrap;
+  }
+  .hud .pill {
+    padding: 7px 9px;
+  }
+  .hud .icon-pill {
+    padding: 0;
+    width: 30px;
+    height: 30px;
+  }
+  .mode-btn {
+    padding: 3px 8px;
+  }
+}
+/* the smallest phones (320 px): a touch tighter still */
+@media (max-width: 345px) {
+  .hud .pill,
+  .mode-btn {
+    font-size: 0.74rem;
+  }
+  .hud .pill {
+    padding: 6px 7px;
+  }
+  .mode-btn {
+    padding: 3px 6px;
+  }
+  .hud-row {
+    gap: 4px;
   }
 }
