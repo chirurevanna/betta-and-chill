@@ -41,8 +41,18 @@ export const currentPainting = (): Painting => PAINTINGS[current];
 
 /** Scale of people and props for a W×H screen (the same formula the layout uses). */
 export const sceneScale = (W: number, H: number) => Math.max(Math.min(W / 1200, H / 750), Math.min(W / 700, H / 900));
+/** Top edge of the player bar: on phones the listeners have to stand above it. */
+let bottomClear = Infinity;
+export function setBottomClear(px: number) {
+  bottomClear = px > 0 ? px : Infinity;
+}
+/** How far the ground has to rise so that a bench at `groundY` stands clear of the player bar. */
+export const groundLift = (groundY: number) => Math.max(0, groundY - (bottomClear - 8));
 /** Where the Museum's bench stands: just above the player bar. */
-export const museumBenchY = (W: number, H: number) => H - Math.max(H * 0.13, 110 * sceneScale(W, H), 100);
+export const museumBenchY = (W: number, H: number) => {
+  const y = H - Math.max(H * 0.13, 110 * sceneScale(W, H), 100);
+  return y - groundLift(y);
+};
 /** Room the frame keeps free under itself for its two-line label. */
 export const LABEL_SPACE = 54;
 
@@ -100,7 +110,7 @@ export function museumGeometry(W: number, H: number, p: Painting = currentPainti
 
 /**
  * Phones: the painting starts just below the top buttons (with room for its picture light), is
- * about 70 % of the screen wide, and the floor line moves down to sit under its label.
+ * about 60 % of the screen wide, and the floor line moves down to sit under its label.
  */
 function tallGeometry(W: number, H: number, vy: number, yT: number, half: number, aspect: number): MuseumGeometry {
   const LABEL = LABEL_SPACE;
@@ -108,7 +118,7 @@ function tallGeometry(W: number, H: number, vy: number, yT: number, half: number
   // frame + label end above the floor line, and leave the listeners room above the player bar
   const listener = 105 * Math.max(0.75, sceneScale(W, H) * 2);
   const room = Math.min(H * 0.76, museumBenchY(W, H) - listener) - LABEL - top;
-  let ph = Math.min((W * 0.7) / aspect, room / 1.15);
+  let ph = Math.min((W * 0.6) / aspect, room / 1.15);
   ph = Math.min(ph, (half * 2 * 0.86) / aspect);
   const pw = ph * aspect;
   const ft = Math.max(7, ph * 0.075);

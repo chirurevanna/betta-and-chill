@@ -4,7 +4,7 @@ import { clamp, css, lerp, mix, smoothstep } from '../util';
 import { BenchScene, drawFarBenches } from './bench';
 import { buildLayout, type Layout } from './build';
 import { goldenOf, nightOf, paletteAt, type PaletteKey } from './palette';
-import { Museum, MUSEUM_DRIFT, setMuseumTopClear } from './museum';
+import { Museum, MUSEUM_DRIFT, setBottomClear, setMuseumTopClear } from './museum';
 import { Sky } from './sky';
 import type { Frame, TreeDef, ViewId } from './types';
 
@@ -63,11 +63,11 @@ export class Renderer {
   }
 
   resize() {
-    // the canvas's own size (in the iOS home-screen app it reaches past the viewport's bottom)
     this.W = this.canvas.clientWidth || innerWidth;
     this.H = this.canvas.clientHeight || innerHeight;
-    // the Museum keeps the painting clear of the buttons at the top
+    // keep the painting clear of the buttons at the top, and the listeners clear of the player
     setMuseumTopClear(document.querySelector('.hud')?.getBoundingClientRect().bottom ?? 0);
+    setBottomClear(document.getElementById('player')?.getBoundingClientRect().top ?? Infinity);
     this.dpr = Math.min(devicePixelRatio || 1, this.W < 800 ? 1.5 : 2);
     this.canvas.width = Math.round(this.W * this.dpr);
     this.canvas.height = Math.round(this.H * this.dpr);

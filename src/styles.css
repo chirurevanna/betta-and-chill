@@ -35,8 +35,7 @@ body {
 
 #scene {
   position: fixed;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100vw;
   height: 100vh;
   height: 100dvh;
@@ -575,6 +574,128 @@ button {
   }
 }
 
+/* ---------- movie picks ---------- */
+.movies-card {
+  position: fixed;
+  left: 50%;
+  top: max(calc(var(--top) + 70px), 12%);
+  transform: translateX(-50%);
+  width: min(300px, calc(100vw - 32px));
+  max-height: calc(100dvh - max(calc(var(--top) + 70px), 12%) - 120px);
+  overflow-y: auto;
+  padding: 18px 18px 14px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--glass-strong);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow:
+    0 20px 60px rgba(10, 8, 30, 0.35),
+    0 0 30px rgba(160, 140, 255, 0.12);
+  z-index: 4;
+}
+.movies-card.fresh {
+  animation: kagga-in 0.8s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.movies-title {
+  margin: 0 28px 14px 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+/* one film at a time */
+.movies-grid {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.movies-grid li {
+  width: min(210px, 70vw);
+  margin: 0 auto;
+}
+.film {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 10px;
+}
+.film:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+.film-poster {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: 8px;
+  background: rgba(10, 8, 30, 0.4);
+  box-shadow: 0 8px 22px rgba(10, 8, 30, 0.45);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.film-poster img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* no poster: the title set like a plain card */
+.film-poster.bare {
+  display: grid;
+  place-items: center;
+  padding: 10px;
+  background: linear-gradient(160deg, #4b3a6e, #22193d);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.92rem;
+  line-height: 1.25;
+  text-align: center;
+}
+.film:hover .film-poster,
+.film:focus-visible .film-poster {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 28px rgba(10, 8, 30, 0.55), 0 0 0 1px var(--line-strong);
+}
+.film-name {
+  margin-top: 9px;
+  font-size: 0.98rem;
+  font-weight: 650;
+  line-height: 1.3;
+  text-align: center;
+  /* underlined so it reads as a link to the film */
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(240, 234, 255, 0.55);
+}
+.film:hover .film-name {
+  text-decoration-color: currentColor;
+}
+.film-meta {
+  color: var(--ink-dim);
+  font-size: 0.8rem;
+  text-align: center;
+}
+.movies-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+.movies-credit {
+  margin: 8px 0 0;
+  color: var(--ink-dim);
+  font-size: 0.5rem;
+  line-height: 1.3;
+  text-align: center;
+  opacity: 0.6;
+}
+@media (max-width: 560px) {
+  .movies-card {
+    top: calc(var(--top) + 80px);
+    max-height: calc(100dvh - var(--top) - 80px - 116px);
+    padding: 16px 14px 12px;
+  }
+}
+
 /* ---------- kagga card ---------- */
 .kagga-card {
   position: fixed;
@@ -1076,14 +1197,6 @@ button.bench-st:hover:not(:disabled) {
 
 [hidden] {
   display: none !important;
-}
-
-/* home-screen app on iOS (black-translucent status bar): the page starts under the status bar
-   but the viewport stops that much short of the bottom; let the scene run to the screen's edge */
-@media (display-mode: standalone) {
-  #scene {
-    height: calc(100vh + env(safe-area-inset-top));
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

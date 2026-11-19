@@ -30,6 +30,7 @@ npm run dev            # http://localhost:5173
 
 **URL params** (handy for demos):
 - `?view=museum` opens in the Museum (the default is the Nandi viewpoint; the view button switches between the two). The summit view is archived: it's no longer in the switcher, but `?view=summit` still opens it.
+- The film button (top right) opens **Movies roulette**: one random film at a time, from those rated 3.5★ or more from a Letterboxd export (`data/letterboxd-ratings.csv`), its poster and title linking to the film on Letterboxd. After a new export, replace that file and run `npm run movies` to rebuild `src/movies/movies.json` (posters come from Wikipedia, and from TMDB for films Wikipedia lacks when `TMDB_KEY` is set in `.env.local`; only new films are looked up).
 - The Museum opens on *Woman Holding a Fruit*; tapping the left or right half of the painting hangs the previous or next one (each listener browses on their own). The paintings are public-domain works by Raja Ravi Varma, downscaled from Wikimedia Commons into `public/paintings/` and listed in `PAINTINGS` in `src/scene/museum.ts`. `?painting=<id>` (e.g. `?view=museum&painting=damayanti`) shows a particular one.
 - `?time=day|golden|sunset|dusk|night` sets the starting light.
 - `?fx=rain,birds` starts those effects immediately.

@@ -8,6 +8,7 @@ import { LANGS, STATIONS, type Lang } from './radio/stations';
 import { addHearts, realtimeConfigured } from './realtime';
 import { storageGet, storageSet } from './util';
 import { knNumber, randomKagga } from './kagga/kagga';
+import { loadFilms, pickFilms, type Film } from './movies/movies';
 import { Renderer } from './scene/render';
 import type { ViewId } from './scene/types';
 
@@ -685,7 +686,12 @@ function hideKagga() {
   kaggaCard.hidden = true;
   btnKagga.setAttribute('aria-expanded', 'false');
 }
-btnKagga.addEventListener('click', () => (kaggaCard.hidden ? void showKagga() : hideKagga()));
+btnKagga.addEventListener('click', () => {
+  if (kaggaCard.hidden) {
+    hideMovies();
+    void showKagga();
+  } else hideKagga();
+});
 $('kagga-next').addEventListener('click', () => void showKagga());
 function showTranslation(on: boolean) {
   $('kagga-en').hidden = !on;
@@ -697,8 +703,81 @@ function showTranslation(on: boolean) {
 $('kagga-tr').addEventListener('click', () => showTranslation($('kagga-en').hidden));
 $('kagga-close').addEventListener('click', hideKagga);
 addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') hideKagga();
+  if (e.key === 'Escape') {
+    hideKagga();
+    hideMovies();
+  }
 });
+
+/* ---------- movies roulette: one random 3.5★+ film at a time; its poster or title opens it on Letterboxd ---------- */
+const btnMovies = $<HTMLButtonElement>('btn-movies');
+const moviesCard = $('movies-card');
+const moviesGrid = $('movies-grid');
+const PICKS = 1;
+let lastPicks = new Set<string>();
+
+function filmTile(f: Film) {
+  const li = document.createElement('li');
+  const a = document.createElement('a');
+  a.className = 'film';
+  a.href = f.url;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  a.setAttribute('aria-label', `${f.name} (${f.year}) on Letterboxd`);
+  const art = document.createElement('div');
+  art.className = 'film-poster';
+  // no poster found (or it fails to load): a plain title card instead
+  const fallback = () => {
+    art.classList.add('bare');
+    art.textContent = f.name;
+  };
+  if (f.poster) {
+    const img = document.createElement('img');
+    img.src = f.poster;
+    img.alt = '';
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.referrerPolicy = 'no-referrer';
+    img.addEventListener('error', () => {
+      img.remove();
+      fallback();
+    });
+    art.append(img);
+  } else fallback();
+  const name = document.createElement('span');
+  name.className = 'film-name';
+  name.textContent = f.name;
+  const year = document.createElement('span');
+  year.className = 'film-meta';
+  year.textContent = String(f.year);
+  a.append(art, name, year);
+  li.append(a);
+  return li;
+}
+
+async function showMovies() {
+  const all = await loadFilms();
+  const picks = pickFilms(all, PICKS, lastPicks);
+  lastPicks = new Set(picks.map((f) => f.url));
+  moviesGrid.replaceChildren(...picks.map(filmTile));
+  moviesCard.hidden = false;
+  moviesCard.classList.remove('fresh');
+  void moviesCard.offsetWidth;
+  moviesCard.classList.add('fresh');
+  btnMovies.setAttribute('aria-expanded', 'true');
+}
+function hideMovies() {
+  moviesCard.hidden = true;
+  btnMovies.setAttribute('aria-expanded', 'false');
+}
+btnMovies.addEventListener('click', () => {
+  if (moviesCard.hidden) {
+    hideKagga();
+    void showMovies();
+  } else hideMovies();
+});
+$('movies-shuffle').addEventListener('click', () => void showMovies());
+$('movies-close').addEventListener('click', hideMovies);
 
 /* ---------- shared benches (connected after first paint) ---------- */
 const idle = (cb: () => void) =>

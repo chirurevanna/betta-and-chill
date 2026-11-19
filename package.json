@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "movies": "node scripts/build-movies.mjs"
   },
   "dependencies": {
     "@supabase/realtime-js": "2.119.0",

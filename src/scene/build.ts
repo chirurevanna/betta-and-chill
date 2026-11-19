@@ -1,6 +1,6 @@
 import { css, mix, mulberry32, smoothstep, type RGB } from '../util';
 import { gopuram, lakeDrawable, lalithaMahal, mysorePalace, nandi, philomenaChurch } from './landmarks';
-import { LABEL_SPACE, museumBenchY, museumGeometry } from './museum';
+import { groundLift, LABEL_SPACE, museumBenchY, museumGeometry } from './museum';
 import type { Drawable, Frame, Lake, TreeDef, ViewId } from './types';
 
 export interface BenchSpot {
@@ -394,9 +394,11 @@ function nandiForeground(W: number, H: number, s: number, rnd: () => number) {
   const narrow = W < H * 0.75;
   const nx = narrow ? W * 0.1 : Math.max(W * 0.2, 72 * n);
   const outcropR = nx + 80 * n;
+  // on phones the ledge rises so the bench stands above the player bar
+  const g = H * 0.875 - groundLift(H * 0.875);
   const edge = rockyEdge(W, rnd, (x) => {
     const rise = 1 - smoothstep(outcropR - 40 * n, outcropR + 60 * n, x);
-    return H * 0.875 - rise * (H * 0.875 - (H * 0.83 - 4 * n)) + Math.sin(x * 0.01) * 4 * s;
+    return g - rise * (g - (g - H * 0.045 - 4 * n)) + Math.sin(x * 0.01) * 4 * s;
   });
   const { rock, light } = ledgePaths(W, H, edge.pts, s);
   const boulders = new Path2D();
@@ -434,7 +436,9 @@ function nandiForeground(W: number, H: number, s: number, rnd: () => number) {
 }
 
 function summitForeground(W: number, H: number, s: number, rnd: () => number) {
-  const edge = rockyEdge(W, rnd, (x) => H * 0.885 + Math.sin(x * 0.006) * 3 * s);
+  // on phones the ledge rises so the bench stands above the player bar
+  const g = H * 0.885 - groundLift(H * 0.885);
+  const edge = rockyEdge(W, rnd, (x) => g + Math.sin(x * 0.006) * 3 * s);
   const { rock, light } = ledgePaths(W, H, edge.pts, s);
   const gw = Math.min(W * 0.3, H * 0.36);
   const gu = gw / 100;
@@ -443,7 +447,7 @@ function summitForeground(W: number, H: number, s: number, rnd: () => number) {
   // railing in front of the viewing platform
   const rail = new Path2D();
   const postGap = Math.max(26, 44 * s);
-  const railY = H * 0.885 - 30 * s;
+  const railY = g - 30 * s;
   for (let x = -10; x < gx - gw * 0.55; x += postGap) {
     rail.rect(x, railY - 2 * s, 3 * s, 34 * s);
   }

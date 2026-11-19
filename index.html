@@ -82,6 +82,7 @@
         <button id="btn-play" class="pill" type="button" aria-expanded="false" aria-controls="tray" title="Birds, sunset, breeze, rain">Sky</button>
         <button id="btn-kagga" class="pill" type="button" aria-expanded="false" aria-controls="kagga-card" title="A kagga by D.V. Gundappa">Kagga</button>
         <span class="hud-break" aria-hidden="true"></span>
+        <button id="btn-movies" class="pill icon-pill" type="button" aria-expanded="false" aria-controls="movies-card" aria-label="Movies roulette" title="Movies roulette"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h16v8.8a1.7 1.7 0 0 1-1.7 1.7H5.7A1.7 1.7 0 0 1 4 18.3z"/><path d="M3.6 7.9 18.9 4a1 1 0 0 1 1.2.7l.5 1.9-15.9 4z"/><path d="m7.6 6.9 2.3 2.7M12 5.8l2.3 2.7M16.4 4.7l2.3 2.7" stroke="var(--glass-strong)" stroke-width="1.3" fill="none"/></svg></button>
         <div class="mode-switch" role="group" aria-label="Where you listen">
           <button id="btn-solo" class="mode-btn" type="button" aria-pressed="false" title="Listen alone and change stations freely">Solo</button>
           <button id="btn-bench" class="mode-btn" type="button" aria-pressed="true" title="Sit on a shared bench">Bench</button>
@@ -111,6 +112,16 @@
     </div>
     <button id="heart" type="button" class="heart-fab" aria-label="Send hearts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.6c-.3 0-.6-.1-.8-.3C6.6 16.4 3 13.3 3 9.2 3 6.4 5.2 4.3 7.9 4.3c1.6 0 3.1.8 4.1 2.1 1-1.3 2.5-2.1 4.1-2.1 2.7 0 4.9 2.1 4.9 4.9 0 4.1-3.6 7.2-8.2 11.1-.2.2-.5.3-.8.3z"/></svg></button>
     <div id="hearts" class="hearts" aria-hidden="true"></div>
+
+    <section id="movies-card" class="movies-card" aria-labelledby="movies-title" hidden>
+      <button id="movies-close" class="panel-close" type="button" aria-label="Close">×</button>
+      <h2 id="movies-title" class="movies-title">Movies roulette</h2>
+      <ul id="movies-grid" class="movies-grid"></ul>
+      <div class="movies-actions">
+        <button id="movies-shuffle" class="pill" type="button">Shuffle</button>
+      </div>
+      <p class="movies-credit">Posters from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
+    </section>
 
     <section id="kagga-card" class="kagga-card" aria-label="Mankuthimmana Kagga" aria-live="polite" hidden>
       <button id="kagga-close" class="panel-close" type="button" aria-label="Close">×</button>
