@@ -1,5 +1,6 @@
 import { css, mix, mulberry32, smoothstep, type RGB } from '../util';
 import { gopuram, lakeDrawable, lalithaMahal, mysorePalace, nandi, philomenaChurch } from './landmarks';
+import { museumGeometry } from './museum';
 import type { Drawable, Frame, Lake, TreeDef, ViewId } from './types';
 
 export interface BenchSpot {
@@ -41,7 +42,7 @@ interface ViewCfg {
   kukkarahalli: [number, number, number];
 }
 
-const VIEWS: Record<ViewId, ViewCfg> = {
+const VIEWS: Record<Exclude<ViewId, 'museum'>, ViewCfg> = {
   nandi: {
     horizon: 0.42,
     cityBottom: 0.86,
@@ -53,6 +54,7 @@ const VIEWS: Record<ViewId, ViewCfg> = {
     karanji: [0.68, 0.58, 0.085],
     kukkarahalli: [0.16, 0.2, 0.1],
   },
+  /** Archived: not in the switcher; reachable only with ?view=summit */
   summit: {
     horizon: 0.36,
     cityBottom: 0.86,
@@ -80,6 +82,7 @@ interface Exclusion {
 }
 
 export function buildLayout(W: number, H: number, view: ViewId): Layout {
+  if (view === 'museum') return museumLayout(W, H);
   const cfg = VIEWS[view];
   const rnd = mulberry32(view === 'nandi' ? 1907 : 1151);
   const s = Math.max(Math.min(W / 1200, H / 750), Math.min(W / 700, H / 900));
@@ -274,6 +277,42 @@ export function buildLayout(W: number, H: number, view: ViewId): Layout {
     bench: fg.bench,
     palaceX: pal.x,
     palaceY: pal.y,
+  };
+}
+
+/**
+ * The Museum is drawn by Museum (museum.ts); the layout only says where the listeners sit and
+ * where birds and rain belong (above and on the skylight).
+ */
+function museumLayout(W: number, H: number): Layout {
+  const s = Math.max(Math.min(W / 1200, H / 750), Math.min(W / 700, H / 900));
+  const g = museumGeometry(W, H);
+  // the listeners are close to us in the room, so they are drawn large, but never so large that
+  // the "you" tag (about 105 units above the bench feet) reaches the painting or its label
+  const benchY = H - Math.max(H * 0.13, 110 * s);
+  const artBottom = g.art.y + g.art.h + g.art.ft + (W > H ? 12 : 56);
+  const u = Math.min(s * 2.3, (benchY - artBottom) / 105);
+  const empty = new Path2D();
+  return {
+    W,
+    H,
+    s,
+    view: 'museum',
+    // birds fly at 25–65 % of this, which keeps them over the skylight glass
+    horizonY: g.skyBottom * 1.25,
+    hills: empty,
+    city: [],
+    lakes: [],
+    forest: empty,
+    forestLight: empty,
+    forestTop: g.yF,
+    drawForeground: () => {},
+    ledgeTop: () => g.skyBottom - 4,
+    trees: [],
+    // above the player bar, like the bench on the hill
+    bench: { x: W / 2, y: benchY, u },
+    palaceX: W / 2,
+    palaceY: g.yF,
   };
 }
 

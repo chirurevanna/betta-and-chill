@@ -16,12 +16,14 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 // Vercel Web Analytics (page views; it only reports on Vercel, never in local dev)
 inject();
 
-const VIEW_NAMES: Record<ViewId, string> = { nandi: 'Nandi', summit: 'Summit' };
+const VIEW_NAMES: Record<ViewId, string> = { nandi: 'Nandi', museum: 'Museum', summit: 'Summit' };
+/** the view button switches Nandi ↔ Museum (Summit is archived; ?view=summit still opens it) */
+const otherView = (v: ViewId): ViewId => (v === 'nandi' ? 'museum' : 'nandi');
 
 /* ---------- boot ---------- */
 const params = new URLSearchParams(location.search);
 const paramView = params.get('view');
-const initialView: ViewId = paramView === 'summit' ? 'summit' : 'nandi';
+const initialView: ViewId = paramView === 'summit' || paramView === 'museum' ? paramView : 'nandi';
 const TIMES: Record<string, number> = { day: 0, golden: 0.42, sunset: 0.56, dusk: 0.72, evening: 0.8, night: 1 };
 // default mood: a quiet evening on the hill (dusk sky, city lights coming on)
 const fx = new Effects(TIMES[params.get('time') ?? 'evening'] ?? TIMES.evening);
@@ -324,15 +326,14 @@ function fire(type: EffectType) {
 /* ---------- UI ---------- */
 const btnView = $<HTMLButtonElement>('btn-view');
 
-/** Opens straight into a view (Nandi unless ?view=summit); the bottom bar switches later. */
+/** Opens straight into a view (Nandi unless ?view=museum or ?view=summit); the view button switches later. */
 function enterView(view: ViewId) {
   renderer.setView(view);
   updateViewButton();
 }
 
 function updateViewButton() {
-  const other: ViewId = renderer.currentView === 'nandi' ? 'summit' : 'nandi';
-  btnView.textContent = VIEW_NAMES[other];
+  btnView.textContent = VIEW_NAMES[otherView(renderer.currentView)];
 }
 
 // on-screen effect tray
@@ -357,7 +358,7 @@ function refreshTray() {
 setInterval(refreshTray, 300);
 
 btnView.addEventListener('click', () => {
-  renderer.setView(renderer.currentView === 'nandi' ? 'summit' : 'nandi');
+  renderer.setView(otherView(renderer.currentView));
   updateViewButton();
 });
 

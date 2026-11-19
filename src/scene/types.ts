@@ -1,6 +1,7 @@
 import type { Palette, PaletteKey } from './palette';
 
-export type ViewId = 'nandi' | 'summit';
+/** 'summit' is archived: out of the switcher, reachable only with ?view=summit */
+export type ViewId = 'nandi' | 'museum' | 'summit';
 
 /** Everything that varies per animation frame. */
 export interface Frame {

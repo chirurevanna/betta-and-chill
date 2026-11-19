@@ -117,6 +117,8 @@ export class BenchScene {
   listening = true;
   /** solo mode: no bench, just me on a rock with an old cassette radio */
   solo = false;
+  /** indoors (the Museum): no monkey or peanut cone, and the solo listener sits on a gallery ottoman */
+  indoor = false;
   private monkey: Monkey | null = null;
   private nextMonkey = 90 + Math.random() * 150;
   private coneSeat = -1;
@@ -185,7 +187,10 @@ export class BenchScene {
       return;
     }
 
-    this.updateMonkey(f, W, spot, reduced);
+    if (this.indoor) {
+      this.monkey = null;
+      this.coneSeat = -1;
+    } else this.updateMonkey(f, W, spot, reduced);
     this.box = { x: spot.x - 80 * u + f.px, y: spot.y - 92 * u + f.py, w: 160 * u, h: 92 * u };
     this.last = { x: spot.x, y: spot.y, u, px: f.px, py: f.py };
 
@@ -438,21 +443,45 @@ export class BenchScene {
     ctx.beginPath();
     ctx.ellipse(13, 1, 79, 5, 0, 0, Math.PI * 2);
     ctx.fill();
-    const rock = new Path2D();
-    rock.moveTo(-58, 0);
-    rock.bezierCurveTo(-58, -6, -54, -11, -46, -11);
-    rock.lineTo(78, -11);
-    rock.bezierCurveTo(84, -11, 88, -5, 86, 0);
-    rock.closePath();
-    inked(ctx, [{ p: rock, fill: css(mix(f.pal.stoneLight, f.pal.rockLight, 0.55)) }], ink, 0.75);
-    ctx.strokeStyle = css(mix(f.pal.stone, f.pal.rockLight, 0.4), 0.6);
-    ctx.lineWidth = 0.6;
-    ctx.beginPath();
-    ctx.moveTo(-40, -6);
-    ctx.lineTo(-12, -6.5);
-    ctx.moveTo(30, -5);
-    ctx.lineTo(58, -5.5);
-    ctx.stroke();
+    if (this.indoor) {
+      // a low gallery ottoman: dark leather cushion on two short legs
+      const legs = new Path2D();
+      legs.rect(-52, -4, 5, 4);
+      legs.rect(79, -4, 5, 4);
+      const seat = new Path2D();
+      seat.roundRect(-58, -11, 146, 7.5, 2.5);
+      inked(
+        ctx,
+        [
+          { p: legs, fill: css(lit(hex('#6b4a32'), 0.5)) },
+          { p: seat, fill: css(lit(hex('#3d3940'), 0.4)) },
+        ],
+        ink,
+        0.75,
+      );
+      ctx.strokeStyle = css(lit(hex('#5b5660'), 0.4), 0.8);
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(-55, -9.6);
+      ctx.lineTo(85, -9.6);
+      ctx.stroke();
+    } else {
+      const rock = new Path2D();
+      rock.moveTo(-58, 0);
+      rock.bezierCurveTo(-58, -6, -54, -11, -46, -11);
+      rock.lineTo(78, -11);
+      rock.bezierCurveTo(84, -11, 88, -5, 86, 0);
+      rock.closePath();
+      inked(ctx, [{ p: rock, fill: css(mix(f.pal.stoneLight, f.pal.rockLight, 0.55)) }], ink, 0.75);
+      ctx.strokeStyle = css(mix(f.pal.stone, f.pal.rockLight, 0.4), 0.6);
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(-40, -6);
+      ctx.lineTo(-12, -6.5);
+      ctx.moveTo(30, -5);
+      ctx.lineTo(58, -5.5);
+      ctx.stroke();
+    }
 
     // ---- the radio, on the ledge to his right ----
     const silver = hex('#bdbab0');

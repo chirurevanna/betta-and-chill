@@ -4,6 +4,7 @@ import { clamp, css, lerp, mix, smoothstep } from '../util';
 import { BenchScene, drawFarBenches } from './bench';
 import { buildLayout, type Layout } from './build';
 import { goldenOf, nightOf, paletteAt, type PaletteKey } from './palette';
+import { Museum, MUSEUM_DRIFT } from './museum';
 import { Sky } from './sky';
 import type { Frame, TreeDef, ViewId } from './types';
 
@@ -18,6 +19,7 @@ export class Renderer {
   private leaves = new Leaves();
   private rain = new Rain();
   readonly bench = new BenchScene();
+  private museum = new Museum();
   private farPoints: { x: number; y: number }[] = [];
   private W = 0;
   private H = 0;
@@ -67,6 +69,14 @@ export class Renderer {
     this.layout = buildLayout(this.W, this.H, this.view);
     this.sky.resize(this.W, this.H, this.layout.horizonY, this.layout.s);
     this.rain.resize(this.W, this.H);
+    this.museum.resize(this.W, this.H, this.dpr);
+    this.enter();
+  }
+
+  /** Per-view setup when a view is shown. */
+  private enter() {
+    this.bench.indoor = this.view === 'museum';
+    if (this.view === 'museum') this.museum.load();
   }
 
   /** Cross-fade to another viewpoint. */
@@ -81,6 +91,7 @@ export class Renderer {
     this.view = view;
     this.layout = buildLayout(this.W, this.H, view);
     this.sky.resize(this.W, this.H, this.layout.horizonY, this.layout.s);
+    this.enter();
   }
 
   private treeSway(t: TreeDef, f: Frame) {
@@ -171,6 +182,10 @@ export class Renderer {
     };
 
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    if (this.view === 'museum') {
+      this.renderMuseum(ctx, f);
+      return;
+    }
     this.sky.drawBackground(ctx, f, layout.horizonY);
     this.sky.drawClouds(ctx, f, layout.horizonY);
 
@@ -262,6 +277,47 @@ export class Renderer {
       ctx.fillRect(0, 0, W, H);
     }
 
+    this.finish(ctx, f, night);
+  }
+
+  /** Inside the gallery: the room, birds and rain only on the skylight, then the listeners. */
+  private renderMuseum(ctx: CanvasRenderingContext2D, f: Frame) {
+    const { W, layout } = this;
+    const dx = f.px * MUSEUM_DRIFT;
+    const dy = f.py * MUSEUM_DRIFT;
+    ctx.save();
+    ctx.translate(dx, dy);
+    this.museum.draw(ctx, f);
+    // birds and rain are outside, seen through the glass
+    ctx.clip(this.museum.skylightPath);
+    ctx.translate(-dx, -dy);
+    // seen from below through the glass: birds are dark silhouettes, rain darker streaks
+    const fo: Frame = { ...f, pal: { ...f.pal, stone: [46, 44, 60], skyTop: [70, 78, 100] } };
+    this.birds.draw(ctx, fo, W);
+    this.rain.draw(ctx, fo, (x) => layout.ledgeTop(x - dx) + dy, []);
+    ctx.restore();
+
+    // listeners are indoors: night tints them far less than on the hill
+    const fi: Frame = { ...f, night: f.night * 0.45, golden: f.golden * 0.4, px: f.px * MUSEUM_DRIFT * 1.6, py: f.py * MUSEUM_DRIFT * 1.6 };
+    ctx.save();
+    ctx.translate(fi.px, fi.py);
+    this.bench.draw(ctx, fi, layout.bench, W, this.reduced);
+    ctx.restore();
+    this.farPoints = this.museum.edgePoints();
+    // a soft shade along the top so the white title and buttons stay readable on the bright skylight
+    const top = Math.min(150, this.H * 0.2);
+    const sc = ctx.createLinearGradient(0, 0, 0, top);
+    sc.addColorStop(0, `rgba(28,22,40,${0.42 * (1 - f.night)})`);
+    sc.addColorStop(1, 'rgba(28,22,40,0)');
+    ctx.fillStyle = sc;
+    ctx.fillRect(0, 0, W, top);
+    this.finish(ctx, f, f.night * 0.6);
+  }
+
+  /** Vignette and the viewpoint cross-fade, common to every view. */
+  private finish(ctx: CanvasRenderingContext2D, f: Frame, night: number) {
+    const { W, H } = this;
+    const { dt } = f;
     // soft vignette
     const vg = ctx.createRadialGradient(W / 2, H * 0.45, Math.min(W, H) * 0.35, W / 2, H * 0.5, Math.hypot(W, H) * 0.62);
     vg.addColorStop(0, 'rgba(10,12,24,0)');

@@ -2,7 +2,7 @@
 
 Sit on Chamundi Hills and watch Mysuru slow down.
 
-Betta & Chill is a calm, illustrated view of Mysuru from one of two spots on the hill: the **Nandi viewpoint** or **the summit** by the Chamundeshwari temple tower. Visitors can sit on one of **20 shared benches** (4 seats each) with other people, listen to Kannada, Hindi or English radio together, and send birds across the sky, play a sunset or sunrise, make a breeze shake the trees, or make it rain.
+Betta & Chill is a calm, illustrated view of Mysuru from the **Nandi viewpoint** on Chamundi Hill, or, for a change of scene, a quiet **Museum** room with a single painting by Raja Ravi Varma on the wall. Visitors can sit on one of **20 shared benches** (4 seats each) with other people, listen to Kannada, Hindi or English radio together, and send birds across the sky, play a sunset or sunrise, make a breeze shake the trees, or make it rain.
 
 - The whole scene is drawn in code on a Canvas 2D: no images, no 3D engine, no video. The first load is about 16 KB gzipped of JS.
 - Live Kannada radio streams (from [radio-browser.info](https://www.radio-browser.info)) play on every bench. Alone on a bench, you change its station freely. With others there, a change is a request: the first benchmate to tap **Yes** within 45 seconds switches it for everyone. If nobody approves, the station stays. **Solo** (next to Bench) takes you off the benches to listen alone, on a rock with an old cassette radio, changing stations freely; it's remembered for next time.
@@ -29,7 +29,8 @@ npm run dev            # http://localhost:5173
 | N | Next station |
 
 **URL params** (handy for demos):
-- `?view=summit` opens at the summit (the default is the Nandi viewpoint; switch any time from the bottom bar).
+- `?view=museum` opens in the Museum (the default is the Nandi viewpoint; the view button switches between the two). The summit view is archived: it's no longer in the switcher, but `?view=summit` still opens it.
+- Museum paintings are public-domain works by Raja Ravi Varma, downscaled from Wikimedia Commons into `public/paintings/` and listed in `PAINTINGS` in `src/scene/museum.ts`.
 - `?time=day|golden|sunset|dusk|night` sets the starting light.
 - `?fx=rain,birds` starts those effects immediately.
 - `?monkey` sends a Chamundi monkey for the peanuts right away.
