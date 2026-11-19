@@ -130,6 +130,23 @@ export class Renderer {
 
     const flutter = f.wind * f.wind;
     const golden = mix(f.pal.fgTreeLight, f.pal.sun, 0.12 * f.golden);
+    // after dusk: a thin cool rim of moonlight around the canopy's outer edge, on the side facing
+    // the light (the whole canopy, nudged toward the light; the dark fill below covers all but a sliver)
+    if (f.night > 0.2) {
+      const a = f.sunX >= topX ? -Math.PI * 0.3 : -Math.PI * 0.7;
+      const off = Math.max(1.6, t.h * 0.009);
+      ctx.fillStyle = `rgba(150,150,210,${0.45 * f.night})`;
+      ctx.beginPath();
+      for (const b of t.blobs) {
+        if (b.light) continue;
+        const lift = 1 + (-b.dy / t.h) * 0.6;
+        const x = topX + b.dx + sway * t.h * 0.25 * lift + Math.cos(a) * off;
+        const y = topY + b.dy + Math.sin(a) * off;
+        ctx.moveTo(x + b.r, y);
+        ctx.arc(x, y, b.r, 0, Math.PI * 2);
+      }
+      ctx.fill();
+    }
     for (let pass = 0; pass < 2; pass++) {
       ctx.fillStyle = pass === 0 ? f.c.fgTree : css(golden);
       ctx.beginPath();

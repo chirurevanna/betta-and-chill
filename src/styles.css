@@ -642,10 +642,11 @@ button {
 /* ---------- benches ---------- */
 .bench-panel {
   position: fixed;
-  /* opens just under the button row */
-  top: calc(var(--top) + 52px);
+  /* opens just under the button row and is only as tall as its 5 benches (scrolls if the screen is short) */
+  --panel-top: calc(var(--top) + 52px);
+  top: var(--panel-top);
   right: max(16px, env(safe-area-inset-right));
-  bottom: max(16px, env(safe-area-inset-bottom));
+  max-height: calc(100dvh - var(--panel-top) - max(16px, env(safe-area-inset-bottom)));
   width: min(360px, calc(100vw - 32px));
   display: flex;
   flex-direction: column;
@@ -693,7 +694,7 @@ button {
   font-weight: 650;
 }
 .bench-list {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   margin: 0;
   padding: 0 4px 0 0;
@@ -705,7 +706,7 @@ button {
 }
 .bench-row {
   display: grid;
-  grid-template-columns: 4.6em auto 1fr auto;
+  grid-template-columns: 4.6em auto 1fr auto auto;
   align-items: center;
   gap: 10px;
   padding: 6px 6px 6px 10px;
@@ -737,6 +738,75 @@ button {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.bench-more {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform var(--slow), background var(--slow), color var(--slow);
+}
+.bench-more svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: auto;
+}
+.bench-more:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+}
+.bench-more[aria-expanded='true'] {
+  transform: rotate(180deg);
+  color: inherit;
+}
+.bench-stations {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 4px;
+  padding: 0;
+  list-style: none;
+}
+.bench-st {
+  display: inline-block;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 0.8rem;
+}
+button.bench-st {
+  cursor: pointer;
+  color: inherit;
+}
+button.bench-st:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+.bench-st.on {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: transparent;
+  color: #2a2350;
+  font-weight: 650;
+}
+.bench-st.on::before {
+  content: '♪ ';
+}
+.bench-st-hint {
+  align-self: center;
+  color: var(--ink-dim);
+  font-size: 0.76rem;
+  font-style: italic;
 }
 .bench-act {
   padding: 5px 12px;
@@ -944,12 +1014,12 @@ button {
 /* the bench panel opens under the button row (after its base rule, so these win) */
 @media (max-width: 760px) {
   .bench-panel {
-    top: calc(var(--top) + 44px);
+    --panel-top: calc(var(--top) + 44px);
   }
 }
 @media (max-width: 560px) {
   .bench-panel {
-    top: calc(var(--top) + 104px);
+    --panel-top: calc(var(--top) + 104px);
   }
 }
 

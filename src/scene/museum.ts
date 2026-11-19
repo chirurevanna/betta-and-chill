@@ -17,7 +17,6 @@ export interface Painting {
   id: string;
   title: string;
   artist: string;
-  date: string;
   src: string;
   /** original pixel size (only the aspect ratio matters) */
   w: number;
@@ -29,7 +28,6 @@ export const PAINTINGS: readonly Painting[] = [
     id: 'woman-fruit',
     title: 'Woman Holding a Fruit',
     artist: 'Raja Ravi Varma',
-    date: 'late 19th century',
     src: '/paintings/ravi-varma-woman-holding-a-fruit.jpg',
     w: 3816,
     h: 4921,
@@ -85,8 +83,9 @@ const WALL = hex('#3c2e39');
 const SIDE = hex('#2c222b');
 const CEIL = hex('#e4e0da');
 const SKIRT = hex('#cdc8c1');
-const OAK: RGB[] = [hex('#b0804f'), hex('#a47446'), hex('#b98a58'), hex('#9c6c40')];
-const SEAM = 'rgba(92,58,32,0.55)';
+// close oak tones and faint seams: the floor should sit back, not compete with the painting
+const OAK: RGB[] = [hex('#8f6644'), hex('#8a6141'), hex('#946a47'), hex('#86603f')];
+const SEAM = 'rgba(70,44,26,0.28)';
 const SKY_DAY = hex('#f6f7f9');
 const SKY_NIGHT = hex('#1f2742');
 const NIGHT_INK: RGB = [12, 9, 22];
@@ -151,16 +150,12 @@ export class Museum {
       return p;
     };
     this.skylight = quad([this.at(-xIn, C, d0), this.at(xIn, C, d0), this.at(xIn, C, d1), this.at(-xIn, C, d1)]);
-    // glazing bars: a few running away from us, a few across
+    // glazing bars: only a few, running away from us (cross bars read as office ceiling tiles)
     const m = new Path2D();
-    for (let i = 1; i < 6; i++) {
-      const X = -xIn + (2 * xIn * i) / 6;
+    for (let i = 1; i < 4; i++) {
+      const X = -xIn + (2 * xIn * i) / 4;
       m.moveTo(...this.at(X, C, d0));
       m.lineTo(...this.at(X, C, d1));
-    }
-    for (let D = d1; D > d0; D -= 1.6) {
-      m.moveTo(...this.at(-xIn, C, D));
-      m.lineTo(...this.at(xIn, C, D));
     }
     this.mullions = m;
   }
@@ -243,16 +238,16 @@ export class Museum {
     }
     // depth: the far floor sits in the wall's shade; a soft sheen where the skylight falls
     const fd = ctx.createLinearGradient(0, yF, 0, H);
-    fd.addColorStop(0, 'rgba(40,22,14,0.35)');
-    fd.addColorStop(0.35, 'rgba(40,22,14,0.08)');
-    fd.addColorStop(1, 'rgba(40,22,14,0.22)');
+    fd.addColorStop(0, 'rgba(36,20,14,0.38)');
+    fd.addColorStop(0.3, 'rgba(36,20,14,0.12)');
+    fd.addColorStop(1, 'rgba(26,14,12,0.5)');
     ctx.fillStyle = fd;
     ctx.fillRect(-PAD, yF, W + PAD * 2, H - yF + PAD);
     ctx.save();
     ctx.translate(W / 2, yF + (H - yF) * 0.42);
     ctx.scale(1, 0.32);
     const sheen = ctx.createRadialGradient(0, 0, 0, 0, 0, W * 0.45);
-    sheen.addColorStop(0, 'rgba(255,240,215,0.22)');
+    sheen.addColorStop(0, 'rgba(255,236,205,0.14)');
     sheen.addColorStop(1, 'rgba(255,240,215,0)');
     ctx.fillStyle = sheen;
     ctx.fillRect(-W, -W, W * 2, W * 2);
@@ -436,9 +431,6 @@ export class Museum {
     ctx.fillText(p.artist, lx, lyTop);
     ctx.font = `italic ${fs}px Georgia, 'Times New Roman', serif`;
     ctx.fillText(p.title, lx, lyTop + fs * 1.4);
-    ctx.fillStyle = 'rgba(232,224,214,0.55)';
-    ctx.font = `${fs * 0.85}px Georgia, 'Times New Roman', serif`;
-    ctx.fillText(p.date, lx, lyTop + fs * 2.8);
     this.artLayer = c;
   }
 
@@ -478,8 +470,8 @@ export class Museum {
     glow.addColorStop(1, css(sky));
     ctx.fillStyle = glow;
     ctx.fill(this.skylight);
-    ctx.strokeStyle = css(mix(CEIL, NIGHT_INK, 0.2 + night * 0.4), 0.7);
-    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = css(mix(CEIL, NIGHT_INK, 0.2 + night * 0.4), 0.85);
+    ctx.lineWidth = 3;
     ctx.stroke(this.mullions);
 
     // after dusk the room falls into gallery lighting

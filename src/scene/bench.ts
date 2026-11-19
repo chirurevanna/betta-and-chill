@@ -220,6 +220,14 @@ export class BenchScene {
       ctx.globalAlpha = 1;
     }
 
+    if (this.indoor) {
+      // a long gallery ottoman in front of them (we see it from behind, like the backrest)
+      this.drawOttoman(ctx, lit);
+      this.drawYouTag(ctx, f);
+      ctx.restore();
+      return;
+    }
+
     // bench: stone uprights + seat edge + wooden slats of the backrest (we see its back)
     const stone = css(mix(f.pal.stoneLight, f.pal.rockLight, 0.5));
     const wood = css(lit(hex('#8a5a3b'), 0.8));
@@ -260,7 +268,36 @@ export class BenchScene {
     // the monkey is in front of everything
     if (this.monkey) this.drawMonkey(ctx, f, spot, lit);
 
-    // "you" tag for a few seconds after sitting down
+    this.drawYouTag(ctx, f);
+    ctx.restore();
+  }
+
+  /** A long gallery ottoman: a deep leather cushion on short wooden legs, hiding the sitters' hips. */
+  private drawOttoman(ctx: CanvasRenderingContext2D, lit: (c: RGB, k?: number) => RGB) {
+    const legs = new Path2D();
+    for (const lx of [-70, -4, 62]) legs.rect(lx, -10, 8, 10);
+    const seat = new Path2D();
+    seat.roundRect(-80, -34, 160, 25, 4);
+    inked(
+      ctx,
+      [
+        { p: legs, fill: css(lit(hex('#6b4a32'), 0.5)) },
+        { p: seat, fill: css(lit(hex('#3d3940'), 0.4)) },
+      ],
+      this.ink,
+      0.75,
+    );
+    // stitched welt along the top of the cushion
+    ctx.strokeStyle = css(lit(hex('#5b5660'), 0.4), 0.85);
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(-77, -31);
+    ctx.lineTo(77, -31);
+    ctx.stroke();
+  }
+
+  /** "you" tag for a few seconds after sitting down (inside the bench's local transform). */
+  private drawYouTag(ctx: CanvasRenderingContext2D, f: Frame) {
     const mi = this.seats.findIndex((s) => s?.me);
     const age = f.time - this.youAt;
     if (mi >= 0 && this.youAt >= 0 && age < 8) {
@@ -277,7 +314,6 @@ export class BenchScene {
       ctx.fillText('you', tx, -94);
       ctx.globalAlpha = 1;
     }
-    ctx.restore();
   }
 
   private drawPerson(

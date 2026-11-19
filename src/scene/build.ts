@@ -390,7 +390,9 @@ function ledgePaths(W: number, H: number, pts: number[], s: number) {
 
 function nandiForeground(W: number, H: number, s: number, rnd: () => number) {
   const n = Math.min(H * 0.0028, W * 0.0034);
-  const nx = Math.max(W * 0.2, 72 * n);
+  // on a tall, narrow phone the Nandi's rump slips off the left edge so the bench gets room
+  const narrow = W < H * 0.75;
+  const nx = narrow ? W * 0.1 : Math.max(W * 0.2, 72 * n);
   const outcropR = nx + 80 * n;
   const edge = rockyEdge(W, rnd, (x) => {
     const rise = 1 - smoothstep(outcropR - 40 * n, outcropR + 60 * n, x);
@@ -406,11 +408,13 @@ function nandiForeground(W: number, H: number, s: number, rnd: () => number) {
     boulders.ellipse(bx, by, br, br * 0.6, 0, Math.PI, 0);
   }
   const bull = nandi(nx, edge.top(nx) - 15 * n, n);
-  const bu = n;
-  const bx = Math.min(W * 0.6, Math.max(W * 0.47, nx + 72 * n + 95 * bu));
+  const bu = narrow ? n * 0.92 : n;
+  const bx = narrow
+    ? Math.min(W - 80 * bu - 6 * s, Math.max(W * 0.6, nx + 76 * n + 12 * n + 80 * bu))
+    : Math.min(W * 0.6, Math.max(W * 0.47, nx + 72 * n + 95 * bu));
   const bench: BenchSpot = { x: bx, y: edge.top(bx) + 3 * bu, u: bu };
   const trees = [
-    makeTree(W - Math.max(60 * s, W * 0.06), edge.top(W * 0.94) + 4, Math.min(H * 0.55, W * 0.6), s, rnd, -0.04),
+    makeTree(W - Math.max(60 * s, W * 0.06), edge.top(W * 0.94) + 4, Math.min(H * 0.47, W * 0.52), s, rnd, -0.04),
     // the small tree stands clear of the bench so it never hides the listeners
     smallTreeBeside(bx, 80 * bu, +1, W * 0.7, Math.min(H * 0.18, W * 0.22), edge.top, s, rnd, 0.02),
   ];

@@ -334,6 +334,14 @@ function enterView(view: ViewId) {
 
 function updateViewButton() {
   btnView.textContent = VIEW_NAMES[otherView(renderer.currentView)];
+  // indoors there's no sky to play with: the Sky button is hidden and its tray closed
+  const indoor = renderer.currentView === 'museum';
+  const sky = $<HTMLButtonElement>('btn-play');
+  sky.hidden = indoor;
+  if (indoor) {
+    $('tray').hidden = true;
+    sky.setAttribute('aria-expanded', 'false');
+  }
 }
 
 // on-screen effect tray
@@ -386,7 +394,7 @@ addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const map: Record<string, EffectType> = { b: 'birds', s: 'sun', w: 'breeze', r: 'rain' };
   const k = e.key.toLowerCase();
-  if (map[k]) fire(map[k]);
+  if (map[k] && renderer.currentView !== 'museum') fire(map[k]);
   else if (k === 'v') btnView.click();
   else if (k === 'p') void radioCommand({ action: 'toggle' });
   else if (k === 'n') void radioCommand({ action: 'next' });
@@ -403,10 +411,12 @@ const benchPanel = $('bench-panel');
 const benchList = $('bench-list');
 const benchSummary = $('bench-summary');
 const stationName = (id: string) => STATIONS.find((s) => s.id === id)?.name ?? id;
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 5;
 const pageCount = Math.ceil(BENCH_COUNT / PAGE_SIZE);
 const benchPages = $('bench-pages');
 let benchPage = 0;
+/** the bench whose station list is expanded in the panel (one at a time) */
+let openStations: number | null = null;
 
 /** Solo | Bench toggle: exactly one is highlighted. */
 function renderBenchButton() {
@@ -442,7 +452,7 @@ function renderBenchPanel() {
     : park.shared
     ? `${n} ${n === 1 ? 'person' : 'people'} sitting · ${BENCH_COUNT} benches`
     : `${BENCH_COUNT} benches · just you for now`;
-  // page pills: 1, 2, … (10 benches each)
+  // page pills: 1, 2, … (5 benches each)
   benchPages.replaceChildren(
     ...Array.from({ length: pageCount }, (_, p) => {
       const b = document.createElement('button');
@@ -485,10 +495,70 @@ function renderBenchPanel() {
       btn.disabled = full;
       btn.addEventListener('click', () => sitOn(b.id));
     }
-    li.append(name, dots, st, btn);
+    // the chevron shows every station in the language this bench is playing
+    const open = openStations === b.id;
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'bench-more';
+    more.setAttribute('aria-expanded', String(open));
+    more.setAttribute('aria-label', `All ${langName(b.station)} stations`);
+    more.title = 'Show all stations';
+    more.innerHTML =
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 9.5l5.5 5.5 5.5-5.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    more.addEventListener('click', () => {
+      openStations = open ? null : b.id;
+      renderBenchPanel();
+    });
+    li.append(name, dots, st, more, btn);
+    if (open) li.append(stationList(b.station, mine));
     rows.push(li);
   }
   benchList.replaceChildren(...rows);
+}
+
+const langName = (station: string) => {
+  const lang = STATIONS.find((s) => s.id === station)?.lang;
+  return LANGS.find((l) => l.id === lang)?.name ?? '';
+};
+
+/**
+ * The stations in the language a bench is playing, with the one on now marked. On my own bench
+ * each one can be tapped (switching straight away alone, or asking benchmates first); on other
+ * benches it's just a look at what they could tune to.
+ */
+function stationList(current: string, mine: boolean) {
+  const lang = STATIONS.find((s) => s.id === current)?.lang ?? radio.lang;
+  const ul = document.createElement('ul');
+  ul.className = 'bench-stations';
+  ul.setAttribute('aria-label', `${langName(current)} stations`);
+  for (const s of radio.stationsOf(lang)) {
+    const li = document.createElement('li');
+    const on = s.id === current;
+    if (mine) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = `bench-st${on ? ' on' : ''}`;
+      b.textContent = s.name;
+      b.disabled = on;
+      if (on) b.setAttribute('aria-current', 'true');
+      b.addEventListener('click', () => void radioCommand({ action: 'select', station: s.id }));
+      li.append(b);
+    } else {
+      const sp = document.createElement('span');
+      sp.className = `bench-st${on ? ' on' : ''}`;
+      sp.textContent = s.name;
+      if (on) sp.setAttribute('aria-current', 'true');
+      li.append(sp);
+    }
+    ul.append(li);
+  }
+  if (!mine) {
+    const hint = document.createElement('li');
+    hint.className = 'bench-st-hint';
+    hint.textContent = 'Sit here to pick one';
+    ul.append(hint);
+  }
+  return ul;
 }
 
 function showBenchPanel(open: boolean) {

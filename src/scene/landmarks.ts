@@ -65,38 +65,165 @@ function build(x: number, y: number, u: number, fn: (b: Mapped, m: (p: Path2D) =
   return b;
 }
 
+/**
+ * Mysore (Amba Vilas) Palace, front elevation, after the real building: a long two-storey facade
+ * with a lower arcade of big cusped arches; paired square towers at each end under red onion domes;
+ * two grey domes on drums along the roof; a central block with a red arched canopy; and the tall
+ * tiered central tower under its gilded dome and spire. At night every line is traced in bulbs.
+ */
 export function mysorePalace(x: number, y: number, u: number, depth: number, hazeAmt: number): Drawable {
   const bulbs: number[] = [];
+  const red = new Path2D();
+  const gold = new Path2D();
+  const grey = new Path2D();
   const g = build(x, y, u, (b, m) => {
     const fill = new Path2D();
     const shade = new Path2D();
-    const accent = new Path2D();
-    // long facade + upper storey
-    fill.rect(-82, -30, 164, 30);
-    fill.rect(-44, -44, 88, 14);
-    // towers
-    fill.rect(-11, -68, 22, 24);
-    for (const s of [-1, 1]) {
-      fill.rect(s * 30 - 5, -56, 10, 12);
-      fill.rect(s * 74 - 5, -42, 10, 12);
+    const R = new Path2D(); // red domes and canopies
+    const G = new Path2D(); // gilded central dome, lantern, spire
+    const Y = new Path2D(); // grey domes
+    const L: number[] = []; // bulb outline
+
+    // ---- the long facade between the inner towers ----
+    fill.rect(-56, -25, 112, 25);
+    shade.rect(-56, -25, 112, 1.6); // cornice
+    shade.rect(-56, -15.6, 112, 1); // band between the storeys
+    // upper storey: a run of small arched windows
+    for (let i = 0; i < 22; i++) {
+      const wx = -54 + i * 4.95;
+      if (Math.abs(wx + 1.4) < 15) continue; // the central block has its own windows
+      arch(shade, wx, -17.6, 2.8, 5.4);
     }
-    // domes (accent)
-    onionDome(accent, 0, -68, 12, 24);
-    accent.rect(-0.8, -98, 1.6, 7);
+    // lower arcade: big round arches, the middle one widest
+    const arches: [number, number, number][] = [];
     for (const s of [-1, 1]) {
-      onionDome(accent, s * 30, -56, 6, 12);
-      onionDome(accent, s * 74, -42, 5, 10);
-      onionDome(accent, s * 54, -30, 3.2, 7);
-      onionDome(accent, s * 16, -44, 3, 6);
+      for (const cx of [24, 38, 49]) arches.push([s * cx, 10.4, 14]);
     }
-    // arcades
-    for (let i = 0; i < 15; i++) arch(shade, -76 + i * 10.4, -3, 6.5, 16);
-    for (let i = 0; i < 9; i++) arch(shade, -38 + i * 8.6, -32, 5, 9);
-    shade.rect(-82, -30, 164, 2.2); // cornice line
-    shade.rect(-7, -62, 14, 3);
+    arches.push([0, 13, 14.6]);
+    for (const [cx, w, h] of arches) arch(shade, cx - w / 2, 0, w, h);
+    // small cusps over each arch: three little lobes along the crown
+    for (const [cx, w, h] of arches) {
+      for (const k of [-0.3, 0, 0.3]) {
+        const px = cx + k * w;
+        const py = -h + w / 2 - Math.sqrt(Math.max(0, (w / 2) ** 2 - (k * w) ** 2)) - 0.3;
+        shade.moveTo(px + 0.8, py);
+        shade.arc(px, py, 0.8, 0, Math.PI * 2);
+      }
+    }
+    sampleLine(L, -56, -25, 56, -25, 3.5);
+    sampleLine(L, -56, -1, 56, -1, 3.5);
+    for (const [cx, w, h] of arches) {
+      const r = w / 2;
+      for (let k = 0; k <= 8; k++) {
+        const a = Math.PI + (k / 8) * Math.PI;
+        L.push(cx + Math.cos(a) * r, -h + r + Math.sin(a) * r);
+      }
+    }
+
+    // ---- small red domes along the roof ----
+    for (const s of [-1, 1]) {
+      for (const dx of [28, 45]) {
+        onionDome(R, s * dx, -25, 2.3, 4.6);
+        sampleDome(L, s * dx, -25, 2.3, 4.6, 3);
+      }
+    }
+
+    // ---- grey domes on square drums ----
+    for (const s of [-1, 1]) {
+      const cx = s * 37;
+      fill.rect(cx - 5, -32, 10, 7); // drum pavilion
+      shade.rect(cx - 5, -32, 10, 1);
+      for (const k of [-3, 0, 3]) arch(shade, cx + k - 1, -26.2, 2, 4);
+      onionDome(Y, cx, -32, 4.6, 9);
+      Y.rect(cx - 0.35, -44, 0.7, 3.4); // finial
+      sampleLine(L, cx - 5, -32, cx - 5, -25, 3.5);
+      sampleLine(L, cx + 5, -32, cx + 5, -25, 3.5);
+      sampleDome(L, cx, -32, 4.6, 9, 6);
+    }
+
+    // ---- paired towers at each end, under red onion domes ----
+    for (const s of [-1, 1]) {
+      for (const [cx, w, top] of [
+        [s * 61, 12, -34],
+        [s * 79.5, 13, -34],
+      ] as [number, number, number][]) {
+        fill.rect(cx - w / 2, top, w, -top);
+        shade.rect(cx - w / 2 - 0.6, top, w + 1.2, 1.6); // parapet
+        // stacked windows, a red balcony hood over the middle ones
+        for (const wy of [-29.5, -22.5, -15.5]) {
+          for (const k of [-3, 0, 3]) arch(shade, cx + k - 0.9, wy + 3.4, 1.8, 3.4);
+        }
+        R.moveTo(cx - w * 0.36, -20);
+        R.ellipse(cx, -20, w * 0.36, 1.4, 0, Math.PI, 0);
+        R.closePath();
+        arch(shade, cx - 2.6, 0, 5.2, 8.5); // gateway
+        // dome, with small pinnacles at the corners of the parapet
+        onionDome(R, cx, top, 4.8, 11);
+        fill.rect(cx - 3.6, top - 1.6, 7.2, 1.6);
+        R.rect(cx - 0.3, top - 15, 0.6, 4.2);
+        for (const k of [-1, 1]) {
+          R.rect(cx + k * (w / 2 - 0.3) - 0.4, top - 4, 0.8, 4);
+          R.moveTo(cx + k * (w / 2 - 0.3) + 0.9, top - 4);
+          R.arc(cx + k * (w / 2 - 0.3), top - 4, 0.9, 0, Math.PI * 2);
+        }
+        sampleLine(L, cx - w / 2, top, cx - w / 2, 0, 3.5);
+        sampleLine(L, cx + w / 2, top, cx + w / 2, 0, 3.5);
+        sampleLine(L, cx - w / 2, top, cx + w / 2, top, 3.5);
+        sampleDome(L, cx, top, 4.8, 11, 6);
+      }
+      // low wing between each pair of towers
+      fill.rect(s * 70.5 - 3, -27, 6, 27);
+    }
+
+    // ---- central block with the red arched canopy ----
+    fill.rect(-15, -29, 30, 29);
+    shade.rect(-15, -29, 30, 1.2);
+    for (let i = 0; i < 5; i++) arch(shade, -10.5 + i * 4.6 - 1.4, -17.6, 2.8, 6);
+    R.moveTo(-9.5, -29);
+    R.ellipse(0, -29, 9.5, 5.2, 0, Math.PI, 0);
+    R.closePath();
+    shade.moveTo(-5.4, -29);
+    shade.ellipse(0, -29, 5.4, 2.8, 0, Math.PI, 0); // the window inside the canopy
+    shade.closePath();
+    sampleLine(L, -15, -29, -15, -1, 3.5);
+    sampleLine(L, 15, -29, 15, -1, 3.5);
+    for (let k = 0; k <= 10; k++) {
+      const a = Math.PI + (k / 10) * Math.PI;
+      L.push(Math.cos(a) * 9.5, -29 + Math.sin(a) * 5.2);
+    }
+
+    // ---- the tiered central tower, its flanking domes, gilded dome and spire ----
+    fill.rect(-8, -42, 16, 13); // tier 1
+    fill.rect(-6.4, -51, 12.8, 9); // tier 2
+    fill.rect(-4.8, -55, 9.6, 4); // drum
+    shade.rect(-8.6, -42, 17.2, 1.2);
+    shade.rect(-7, -51, 14, 1);
+    for (const k of [-4, 0, 4]) arch(shade, k - 1, -34, 2, 5.5);
+    for (const k of [-2.6, 2.6]) arch(shade, k - 0.9, -44, 1.8, 4.6);
+    for (const sx of [-1, 1]) {
+      onionDome(R, sx * 11.5, -33, 2.6, 5.4); // red, at the tower's feet
+      onionDome(Y, sx * 6.2, -42, 2, 4.4); // grey, on the first tier
+      R.rect(sx * 11.5 - 0.25, -40.6, 0.5, 2.4);
+      sampleDome(L, sx * 11.5, -33, 2.6, 5.4, 3);
+      sampleDome(L, sx * 6.2, -42, 2, 4.4, 3);
+    }
+    onionDome(G, 0, -55, 5, 10.5); // the gilded dome
+    G.rect(-1.4, -69, 2.8, 4.4); // lantern
+    onionDome(G, 0, -69, 1.8, 3.4);
+    G.rect(-0.3, -77, 0.6, 5); // spire
+    sampleLine(L, -8, -42, -8, -29, 3.5);
+    sampleLine(L, 8, -42, 8, -29, 3.5);
+    sampleLine(L, -6.4, -51, -6.4, -42, 3);
+    sampleLine(L, 6.4, -51, 6.4, -42, 3);
+    sampleDome(L, 0, -55, 5, 10.5, 7);
+    sampleLine(L, 0, -72, 0, -77, 2.5);
+
     b.fill = m(fill);
     b.shade = m(shade);
-    b.accent = m(accent);
+    b.accent = new Path2D();
+    red.addPath(m(R));
+    gold.addPath(m(G));
+    grey.addPath(m(Y));
     const lawn = new Path2D();
     lawn.moveTo(-100, 0);
     lawn.lineTo(100, 0);
@@ -104,31 +231,6 @@ export function mysorePalace(x: number, y: number, u: number, depth: number, haz
     lawn.lineTo(-118, 14);
     lawn.closePath();
     b.lawn = m(lawn);
-
-    // bulb outline (local units)
-    const L: number[] = [];
-    sampleLine(L, -82, -30, 82, -30, 4);
-    sampleLine(L, -82, -30, -82, 0, 4);
-    sampleLine(L, 82, -30, 82, 0, 4);
-    sampleLine(L, -82, -1, 82, -1, 4);
-    sampleLine(L, -44, -44, 44, -44, 4);
-    sampleLine(L, -11, -68, 11, -68, 4);
-    sampleLine(L, -11, -68, -11, -44, 4);
-    sampleLine(L, 11, -68, 11, -44, 4);
-    sampleDome(L, 0, -68, 12, 24, 12);
-    for (const s of [-1, 1]) {
-      sampleDome(L, s * 30, -56, 6, 12, 6);
-      sampleDome(L, s * 74, -42, 5, 10, 5);
-      sampleLine(L, s * 30 - 5, -56, s * 30 - 5, -44, 4);
-      sampleLine(L, s * 30 + 5, -56, s * 30 + 5, -44, 4);
-    }
-    for (let i = 0; i < 15; i++) {
-      const ax = -76 + i * 10.4 + 3.25;
-      for (let k = 0; k <= 4; k++) {
-        const a = Math.PI + (k / 4) * Math.PI;
-        L.push(ax + Math.cos(a) * 3.25, -3 - 16 + 3.25 + Math.sin(a) * 3.25);
-      }
-    }
     for (let i = 0; i < L.length; i += 2) bulbs.push(x + L[i] * u, y + L[i + 1] * u);
   });
 
@@ -142,8 +244,11 @@ export function mysorePalace(x: number, y: number, u: number, depth: number, haz
     sorted[i * 2] = bulbs[src * 2];
     sorted[i * 2 + 1] = bulbs[src * 2 + 1];
   });
-  const bulbR = Math.max(0.7, 0.75 * u);
+  const bulbR = Math.max(0.65, 0.62 * u);
   const glowR = 150 * u;
+  const RED: RGB = [176, 44, 44];
+  const GOLD: RGB = [214, 166, 64];
+  const GREY: RGB = [118, 112, 108];
 
   return {
     depth,
@@ -151,6 +256,8 @@ export function mysorePalace(x: number, y: number, u: number, depth: number, haz
       const { pal } = f;
       const lit = f.bulbs;
       const hz = (c: RGB) => mix(c, pal.haze, hazeAmt);
+      // domes keep their own colours by day and sink toward the palette at dusk
+      const tone = (c: RGB) => hz(mix(c, pal.dome, 0.25 + 0.55 * f.night));
       ctx.fillStyle = css(hz(mix(pal.ground, pal.cityTree, 0.55)));
       ctx.fill(g.lawn!);
       if (lit > 0) {
@@ -162,8 +269,12 @@ export function mysorePalace(x: number, y: number, u: number, depth: number, haz
       }
       ctx.fillStyle = css(mix(hz(pal.palace), WARM, 0.55 * lit));
       ctx.fill(g.fill);
-      ctx.fillStyle = css(mix(hz(pal.dome), [236, 150, 92], 0.5 * lit));
-      ctx.fill(g.accent);
+      ctx.fillStyle = css(mix(tone(GREY), [190, 140, 100], 0.45 * lit));
+      ctx.fill(grey);
+      ctx.fillStyle = css(mix(tone(RED), [236, 120, 80], 0.45 * lit));
+      ctx.fill(red);
+      ctx.fillStyle = css(mix(tone(GOLD), [255, 200, 110], 0.5 * lit));
+      ctx.fill(gold);
       ctx.fillStyle = css(mix(hz(pal.palaceShade), [150, 80, 40], 0.6 * lit));
       ctx.fill(g.shade);
       if (lit > 0.01) {
@@ -274,12 +385,25 @@ export function lakeDrawable(cx: number, cy: number, rx: number, ry: number, dep
     depth,
     draw(ctx, f) {
       const { pal } = f;
-      const water = mix(mix(pal.skyTop, pal.skyBottom, 0.55), pal.haze, hazeAmt * 0.6);
-      ctx.fillStyle = css(mix(pal.cityTree, pal.forest, 0.5));
-      ctx.beginPath();
-      ctx.ellipse(cx, cy + ry * 0.12, rx * 1.06, ry * 1.25, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = css(water);
+      // the water mirrors the sky by day; after dusk it goes dark, like the land around it
+      let water = mix(mix(pal.skyTop, pal.skyBottom, 0.55), pal.haze, hazeAmt * 0.6);
+      water = mix(water, mix(pal.forest, pal.skyTop, 0.35), f.night * 0.7);
+      // soft green shore that fades into the city (no hard outline)
+      ctx.save();
+      ctx.translate(cx, cy + ry * 0.1);
+      ctx.scale(1, (ry * 1.3) / (rx * 1.1));
+      const shore = ctx.createRadialGradient(0, 0, rx * 0.85, 0, 0, rx * 1.1);
+      const sc = mix(pal.cityTree, pal.forest, 0.4);
+      shore.addColorStop(0, css(sc, 0.55));
+      shore.addColorStop(1, css(sc, 0));
+      ctx.fillStyle = shore;
+      ctx.fillRect(-rx * 1.1, -rx * 1.1, rx * 2.2, rx * 2.2);
+      ctx.restore();
+      // far edge lighter (reflected sky), near edge deeper
+      const wg = ctx.createLinearGradient(0, cy - ry, 0, cy + ry);
+      wg.addColorStop(0, css(mix(water, pal.haze, 0.25)));
+      wg.addColorStop(1, css(mix(water, pal.forest, 0.18)));
+      ctx.fillStyle = wg;
       ctx.fill(shape);
       const glint = f.night > 0.5 ? mix([255, 214, 150], water, 0.3) : mix(pal.sun, [255, 255, 255], 0.5);
       ctx.strokeStyle = css(glint, 0.55 * (1 - f.rain * 0.7));

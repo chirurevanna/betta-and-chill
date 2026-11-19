@@ -209,6 +209,11 @@ export class Radio {
     return this.stations.filter((s) => s.lang === lang && this.matchesLang(s)).length;
   }
 
+  /** Every station in a language that isn't known to be down (for the bench list's "all stations"). */
+  stationsOf(lang: Lang): Station[] {
+    return this.stations.filter((s) => s.lang === lang && this.isAvailable(s));
+  }
+
   /** The station to start a language on: the first one that's up, else the first one. */
   firstIdOf(lang: Lang): string | null {
     const pool = this.stations.filter((s) => s.lang === lang && this.matchesLang(s));
