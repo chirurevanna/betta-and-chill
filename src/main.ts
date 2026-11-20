@@ -432,10 +432,12 @@ function renderBenchButton() {
 const btnSolo = $<HTMLButtonElement>('btn-solo');
 let solo = storageGet('bc.solo') === '1';
 renderer.bench.solo = solo;
+park.setSolo(solo);
 function setSolo(on: boolean) {
   solo = on;
   storageSet('bc.solo', on ? '1' : '');
   renderer.bench.solo = on;
+  park.setSolo(on);
   if (on) {
     park.leave();
     showBenchPanel(false);
@@ -452,10 +454,11 @@ btnSolo.addEventListener('click', () => {
 function renderBenchPanel() {
   if (benchPanel.hidden) return;
   const n = park.sittingCount;
-  benchSummary.textContent = solo
-    ? `You're listening solo · ${n} ${n === 1 ? 'person' : 'people'} on benches`
-    : park.shared
-    ? `${n} ${n === 1 ? 'person' : 'people'} sitting · ${BENCH_COUNT} benches`
+  const alone = park.soloCount;
+  benchSummary.textContent = park.shared
+    ? `${n} on benches · ${alone} listening solo`
+    : solo
+    ? `You're listening solo · just you for now`
     : `${BENCH_COUNT} benches · just you for now`;
   // page pills: 1, 2, … (5 benches each)
   benchPages.replaceChildren(

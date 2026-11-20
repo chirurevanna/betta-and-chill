@@ -15,6 +15,8 @@ export interface Sitter {
   /** this sitter's view of the bench station, with the time it was chosen (0 = bench default) */
   station: string;
   stationAt: number;
+  /** listening alone, off the benches (older clients leave it out) */
+  solo?: boolean;
 }
 
 export interface SeatView {
@@ -161,6 +163,21 @@ export class BenchPark {
   get sittingCount() {
     return this.benches.reduce((n, b) => n + b.count, 0);
   }
+  /** how many people (me included) are listening solo right now */
+  get soloCount() {
+    const all = this.link ? this.link.state() : new Map<string, Sitter>();
+    all.set(this.key, this.me);
+    const seeds = new Set<string>();
+    for (const s of all.values()) if (isSitter(s) && s.bench === null && s.solo) seeds.add(s.seed);
+    return seeds.size;
+  }
+  /** tell everyone I'm listening solo (or not) */
+  setSolo(on: boolean) {
+    if (!!this.me.solo === on) return;
+    this.me = { ...this.me, solo: on };
+    this.link?.track(this.me);
+    this.onChange();
+  }
 
   async connect() {
     this.link = await joinPresence<Sitter>('bc:park', this.key, {
@@ -180,7 +197,8 @@ export class BenchPark {
         this.onChange();
       },
     });
-    if (this.link && this.me.bench !== null) this.link.track(this.me);
+    // tracked even off the benches, so solo listeners show up in the counts
+    if (this.link && (this.me.bench !== null || this.me.solo)) this.link.track(this.me);
   }
 
   /**
@@ -235,6 +253,7 @@ export class BenchPark {
       // adopt the bench's station without overriding it
       station: b.station,
       stationAt: b.stationAt,
+      solo: false,
     };
     this.publish();
     console.info(`${LOG} sat on bench ${bench + 1}, seat ${free + 1}`, LOG_STYLE);
@@ -257,7 +276,7 @@ export class BenchPark {
     if (this.me.bench === null) return;
     this.endVotes();
     console.info(`${LOG} left bench ${this.me.bench + 1}`, LOG_STYLE);
-    this.me = { ...this.me, bench: null, seat: 0, sitAt: 0, station: '', stationAt: 0 };
+    this.me = { ...this.me, bench: null, seat: 0, sitAt: 0, station: '', stationAt: 0, solo: this.me.solo };
     storageSet('bc.seat', ''); // chose to go: nothing to come back to
     this.lastStation = '';
     this.publish();
