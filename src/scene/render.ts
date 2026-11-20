@@ -2,7 +2,7 @@ import { Birds, Leaves, Rain } from '../effects/particles';
 import type { Effects } from '../effects/manager';
 import { clamp, css, lerp, mix, smoothstep } from '../util';
 import { BenchScene, drawFarBenches } from './bench';
-import { buildLayout, type Layout } from './build';
+import { buildLayout, type BenchSpot, type Layout } from './build';
 import { goldenOf, nightOf, paletteAt, type PaletteKey } from './palette';
 import { Museum, MUSEUM_DRIFT, setBottomClear, setMuseumTopClear } from './museum';
 import { Sky } from './sky';
@@ -22,6 +22,8 @@ export class Renderer {
   private museum = new Museum();
   /** the Museum room's current pointer drift (for hit-testing the painting) */
   private drift = { x: 0, y: 0 };
+  /** where the player bar starts and the round buttons sit (the listeners keep clear of both) */
+  private clear: { bottom: number; dock: DOMRect | null } = { bottom: Infinity, dock: null };
   private farPoints: { x: number; y: number }[] = [];
   private W = 0;
   private H = 0;
@@ -41,6 +43,18 @@ export class Renderer {
     this.ctx = canvas.getContext('2d', { alpha: false })!;
     this.view = view;
     this.resize();
+    // the player bar can change height after the first layout (station name, fonts): re-fit then
+    const bar = document.getElementById('player');
+    if (bar && 'ResizeObserver' in window) {
+      let last = bar.getBoundingClientRect().top;
+      new ResizeObserver(() => {
+        const top = bar.getBoundingClientRect().top;
+        if (Math.abs(top - last) > 1) {
+          last = top;
+          this.resize();
+        }
+      }).observe(bar);
+    }
     if (!this.reduced) {
       addEventListener('pointermove', (e) => {
         this.ptr.x = (e.clientX / innerWidth) * 2 - 1;
@@ -67,7 +81,9 @@ export class Renderer {
     this.H = this.canvas.clientHeight || innerHeight;
     // keep the painting clear of the buttons at the top, and the listeners clear of the player
     setMuseumTopClear(document.querySelector('.hud')?.getBoundingClientRect().bottom ?? 0);
-    setBottomClear(document.getElementById('player')?.getBoundingClientRect().top ?? Infinity);
+    const bar = document.getElementById('player')?.getBoundingClientRect();
+    setBottomClear(bar?.top ?? Infinity);
+    this.clear = { bottom: bar?.top ?? Infinity, dock: document.querySelector('.dock')?.getBoundingClientRect() ?? null };
     this.dpr = Math.min(devicePixelRatio || 1, this.W < 800 ? 1.5 : 2);
     this.canvas.width = Math.round(this.W * this.dpr);
     this.canvas.height = Math.round(this.H * this.dpr);
@@ -299,7 +315,7 @@ export class Renderer {
     layout.drawForeground(ctx, f);
     for (const t of layout.trees) this.drawTree(ctx, t, f);
     // after the trees: nothing in the scenery may ever cover the people on the bench
-    this.bench.draw(ctx, f, layout.bench, W, this.reduced);
+    this.bench.draw(ctx, f, this.listenerSpot(layout.bench), W, this.reduced);
     this.leaves.update(f, layout.trees, W, H, layout.s, (t) => this.treeSway(t, f));
     this.leaves.draw(ctx, f);
     ctx.restore();
@@ -342,7 +358,7 @@ export class Renderer {
     const fi: Frame = { ...f, night: f.night * 0.45, golden: f.golden * 0.4, px: f.px * MUSEUM_DRIFT * 1.6, py: f.py * MUSEUM_DRIFT * 1.6 };
     ctx.save();
     ctx.translate(fi.px, fi.py);
-    this.bench.draw(ctx, fi, layout.bench, W, this.reduced);
+    this.bench.draw(ctx, fi, this.listenerSpot(layout.bench), W, this.reduced);
     ctx.restore();
     this.farPoints = this.museum.edgePoints();
     // a soft shade along the top so the white title and buttons stay readable on the bright skylight
@@ -376,6 +392,25 @@ export class Renderer {
       ctx.globalAlpha = 1;
       if (a <= 0) this.fadeFrom = null;
     }
+  }
+
+  /**
+   * Where the listeners are drawn: the layout's spot, nudged so the whole group (the bench and its
+   * people, or the solo listener with his ledge, radio and conch) stands above the player bar and,
+   * on phones, left of the stacked round buttons.
+   */
+  private listenerSpot(spot: BenchSpot): BenchSpot {
+    const { u } = spot;
+    const solo = this.bench.solo;
+    const left = (solo ? 60 : 84) * u; // reach of the group either side of its centre
+    const right = (solo ? 92 : 84) * u;
+    const height = (solo ? 90 : 106) * u;
+    let { x, y } = spot;
+    y = Math.min(y, this.clear.bottom - 10);
+    const d = this.clear.dock;
+    if (d && y > d.top - 4 && y - height < d.bottom && x + right > d.left - 8) x = d.left - 8 - right;
+    x = Math.max(x, left + 6);
+    return { x, y, u };
   }
 
   /** A random far-hillside bench, in screen coordinates (where hearts from other benches rise). */
