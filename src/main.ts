@@ -17,8 +17,7 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 // Vercel Web Analytics (page views; it only reports on Vercel, never in local dev)
 inject();
 
-const VIEW_NAMES: Record<ViewId, string> = { nandi: 'Nandi', museum: 'Museum', summit: 'Summit' };
-/** the view button switches Nandi ↔ Museum (Summit is archived; ?view=summit still opens it) */
+/** the Nandi | Museum toggle (Summit is archived; ?view=summit still opens it) */
 const otherView = (v: ViewId): ViewId => (v === 'nandi' ? 'museum' : 'nandi');
 
 /* ---------- boot ---------- */
@@ -328,17 +327,20 @@ function fire(type: EffectType) {
 }
 
 /* ---------- UI ---------- */
-const btnView = $<HTMLButtonElement>('btn-view');
+const btnNandi = $<HTMLButtonElement>('btn-nandi');
+const btnMuseum = $<HTMLButtonElement>('btn-museum');
 
-/** Opens straight into a view (Nandi unless ?view=museum or ?view=summit); the view button switches later. */
+/** Opens straight into a view (Nandi unless ?view=museum or ?view=summit); the toggle switches later. */
 function enterView(view: ViewId) {
   renderer.setView(view);
   updateViewButton();
 }
 
 function updateViewButton() {
-  btnView.textContent = VIEW_NAMES[otherView(renderer.currentView)];
-  // indoors there's no sky to play with: the Sky button is hidden and its tray closed
+  // Nandi | Museum: the place you're in is highlighted
+  btnNandi.setAttribute('aria-pressed', String(renderer.currentView === 'nandi'));
+  btnMuseum.setAttribute('aria-pressed', String(renderer.currentView === 'museum'));
+  // indoors there's no sky to play with: the Effects button is hidden and its tray closed
   const indoor = renderer.currentView === 'museum';
   const sky = $<HTMLButtonElement>('btn-play');
   sky.hidden = indoor;
@@ -369,10 +371,8 @@ function refreshTray() {
 }
 setInterval(refreshTray, 300);
 
-btnView.addEventListener('click', () => {
-  renderer.setView(otherView(renderer.currentView));
-  updateViewButton();
-});
+btnNandi.addEventListener('click', () => enterView('nandi'));
+btnMuseum.addEventListener('click', () => enterView('museum'));
 
 
 
@@ -399,7 +399,7 @@ addEventListener('keydown', (e) => {
   const map: Record<string, EffectType> = { b: 'birds', s: 'sun', w: 'breeze', r: 'rain' };
   const k = e.key.toLowerCase();
   if (map[k] && renderer.currentView !== 'museum') fire(map[k]);
-  else if (k === 'v') btnView.click();
+  else if (k === 'v') enterView(otherView(renderer.currentView));
   else if (k === 'p') void radioCommand({ action: 'toggle' });
   else if (k === 'n') void radioCommand({ action: 'next' });
 });

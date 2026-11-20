@@ -78,11 +78,12 @@
         <button class="pill" type="button" data-fx="rain" title="Rain (R)">Rain</button>
       </div>
       <div class="hud-row">
-        <button id="btn-view" class="pill" type="button"></button>
-        <button id="btn-play" class="pill" type="button" aria-expanded="false" aria-controls="tray" title="Birds, sunset, breeze, rain">Sky</button>
-        <button id="btn-kagga" class="pill" type="button" aria-expanded="false" aria-controls="kagga-card" title="A kagga by D.V. Gundappa">Kagga</button>
+        <div class="mode-switch" role="group" aria-label="Where you are">
+          <button id="btn-nandi" class="mode-btn" type="button" aria-pressed="true" title="The Nandi viewpoint on Chamundi Hill">Nandi</button>
+          <button id="btn-museum" class="mode-btn" type="button" aria-pressed="false" title="A quiet gallery with Raja Ravi Varma's paintings">Museum</button>
+        </div>
+        <button id="btn-play" class="pill" type="button" aria-expanded="false" aria-controls="tray" title="Birds, sunset, breeze, rain">Effects</button>
         <span class="hud-break" aria-hidden="true"></span>
-        <button id="btn-movies" class="pill icon-pill" type="button" aria-expanded="false" aria-controls="movies-card" aria-label="Movies roulette" title="Movies roulette"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h16v8.8a1.7 1.7 0 0 1-1.7 1.7H5.7A1.7 1.7 0 0 1 4 18.3z"/><path d="M3.6 7.9 18.9 4a1 1 0 0 1 1.2.7l.5 1.9-15.9 4z"/><path d="m7.6 6.9 2.3 2.7M12 5.8l2.3 2.7M16.4 4.7l2.3 2.7" stroke="var(--glass-strong)" stroke-width="1.3" fill="none"/></svg></button>
         <div class="mode-switch" role="group" aria-label="Where you listen">
           <button id="btn-solo" class="mode-btn" type="button" aria-pressed="false" title="Listen alone and change stations freely">Solo</button>
           <button id="btn-bench" class="mode-btn" type="button" aria-pressed="true" title="Sit on a shared bench">Bench</button>
@@ -91,6 +92,7 @@
       </div>
     </div>
 
+    <div class="bottom-bar">
     <div id="player" class="player" role="group" aria-label="Radio" title="Streams via radio-browser.info, © respective stations">
       <div class="lang-switch" role="group" aria-label="Language">
         <button type="button" class="lang-btn" data-lang="kn" lang="kn" aria-pressed="true" aria-label="Kannada">ಕ</button>
@@ -110,7 +112,13 @@
         <svg class="wave" viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true"><g class="wave-amp"><path class="wave-line" d="M0 6 Q5 1.8 10 6 T20 6 T30 6 T40 6 T50 6 T60 6 T70 6 T80 6 T90 6 T100 6 T110 6 T120 6 T130 6 T140 6 T150 6 T160 6 T170 6 T180 6 T190 6 T200 6 T210 6 T220 6 T230 6 T240 6"/></g></svg>
       </div>
     </div>
-    <button id="heart" type="button" class="heart-fab" aria-label="Send hearts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.6c-.3 0-.6-.1-.8-.3C6.6 16.4 3 13.3 3 9.2 3 6.4 5.2 4.3 7.9 4.3c1.6 0 3.1.8 4.1 2.1 1-1.3 2.5-2.1 4.1-2.1 2.7 0 4.9 2.1 4.9 4.9 0 4.1-3.6 7.2-8.2 11.1-.2.2-.5.3-.8.3z"/></svg></button>
+    <!-- heart, kagga and movies: beside the player on wide screens, stacked at the bottom right on phones -->
+    <div class="dock">
+    <button id="heart" type="button" class="fab heart-fab" aria-label="Send hearts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.6c-.3 0-.6-.1-.8-.3C6.6 16.4 3 13.3 3 9.2 3 6.4 5.2 4.3 7.9 4.3c1.6 0 3.1.8 4.1 2.1 1-1.3 2.5-2.1 4.1-2.1 2.7 0 4.9 2.1 4.9 4.9 0 4.1-3.6 7.2-8.2 11.1-.2.2-.5.3-.8.3z"/></svg></button>
+    <button id="btn-kagga" class="fab kagga-fab" type="button" aria-expanded="false" aria-controls="kagga-card" aria-label="A kagga by D.V. Gundappa" title="A kagga by D.V. Gundappa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6.6C10.2 5.2 7.6 4.6 4.6 4.8a1 1 0 0 0-.9 1v11.6a.9.9 0 0 0 1 .9c2.7-.2 5 .3 6.8 1.6.3.2.7.2 1 0 1.8-1.3 4.1-1.8 6.8-1.6a.9.9 0 0 0 1-.9V5.8a1 1 0 0 0-.9-1c-3-.2-5.6.4-7.4 1.8z"/><path d="M12 6.8v12" stroke="var(--fab-bg)" stroke-width="1.4" fill="none"/></svg></button>
+    <button id="btn-movies" class="fab movies-fab" type="button" aria-expanded="false" aria-controls="movies-card" aria-label="Movies roulette" title="Movies roulette"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h16v8.8a1.7 1.7 0 0 1-1.7 1.7H5.7A1.7 1.7 0 0 1 4 18.3z"/><path d="M3.6 7.9 18.9 4a1 1 0 0 1 1.2.7l.5 1.9-15.9 4z"/><path d="m7.6 6.9 2.3 2.7M12 5.8l2.3 2.7M16.4 4.7l2.3 2.7" stroke="var(--fab-bg)" stroke-width="1.3" fill="none"/></svg></button>
+    </div>
+    </div>
     <div id="hearts" class="hearts" aria-hidden="true"></div>
 
     <section id="movies-card" class="movies-card" aria-labelledby="movies-title" hidden>
