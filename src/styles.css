@@ -717,10 +717,24 @@ button {
   font-size: 0.8rem;
   text-align: center;
 }
+.movies-note {
+  margin: -8px 0 14px;
+  color: var(--ink-dim);
+  font-size: 0.8rem;
+  font-style: italic;
+  line-height: 1.4;
+}
 .movies-actions {
   display: flex;
   justify-content: center;
   margin-top: 14px;
+}
+.shuffle-btn svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .movies-credit {
   margin: 8px 0 0;

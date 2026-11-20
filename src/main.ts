@@ -446,6 +446,7 @@ function setSolo(on: boolean) {
 }
 btnSolo.addEventListener('click', () => {
   if (!solo) setSolo(true);
+  toast('Love you, Manu', 2200);
 });
 
 function renderBenchPanel() {
